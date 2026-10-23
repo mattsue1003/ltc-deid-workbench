@@ -90,8 +90,9 @@
     '任何', '每間', '每家', '多家', '兩家', '一家', '哪家', '哪間', '他院', '其', '外院', '本院', '本所', '本中心', '我們', '大醫院',
     '小診所', '各大', '附設', '鄰近的', '前一家', '上一家', '同一家']);
 
+  const COMMON_SURNAME = new Set('陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏'.split(''));
   const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
-  const COMMON_WORDS = new Set('希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
+  const COMMON_WORDS = new Set('喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
   const CJK = '\\u4e00-\\u9fff\\u3400-\\u4dbf';
   const NUMC = '0-9０-９一二三四五六七八九十百零〇';
   const isCJK = ch => !!ch && /[一-鿿㐀-䶿]/.test(ch);
@@ -109,7 +110,8 @@
     date: { label: '日期', color: 'date' },
     address: { label: '地址', color: 'addr' },
     org: { label: '機構名稱', color: 'org' },
-    custom: { label: '自訂遮蔽詞', color: 'custom' }
+    custom: { label: '自訂遮蔽詞', color: 'custom' },
+    field: { label: '表單欄位（掃描檔）', color: 'custom' }
   };
 
   // ───────── 日期工具 ─────────
@@ -185,13 +187,29 @@
       const c2 = t[i + sl + 1];
       let len = sl + 1;
       if (isCJK(c2) && !NAME_STOP.has(c2) && !titleAt(t, i + sl + 1)) len = sl + 2;
+      // 冠夫姓（李張秀蘭、吳林玉英）：第二字也是常見姓，後面再接兩個字
+      if (sl === 1 && len === 3 && COMMON_SURNAME.has(c1)) {
+        const c3 = t[i + 3], c4 = t[i + 4];
+        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && (!isCJK(c4) || NAME_STOP.has(c4) || titleAt(t, i + 4))) len = 4;
+      }
       const name = t.substr(i, len);
       if (NOT_NAMES.has(name)) return null;
       return name;
     };
+    // 前一段只有欄位名稱（表格左格「個案姓名」、右格才是內容）→ 當成這一段的前綴
+    const LABELISH = /(姓名|名字|個案|案主|照顧者|聯絡人|家屬|看護|監護人|代理人|出生|生日|日期|電話|手機|地址|住址|戶籍|身分證|身份證|案號|病歷|編號|卡號|評估者|評估人員|人員|簽名|督導|個管|治療師|護理師|社工|居服員|照服員|填表人|負責人)\s*[:：]?$/;
+    const prefixOf = si => {
+      if (si === 0) return '';
+      const p = segments[si - 1].trim();
+      if (p.length < 2 || p.length > 8 || /[\d\s]/.test(p) || !LABELISH.test(p)) return '';
+      return p.replace(/[:：]?$/, '：');
+    };
 
-    // Pass 1：規則比對
-    segments.forEach((t, si) => {
+    // Pass 1：規則比對（t = 前綴＋本段；落在前綴裡的結果丟掉）
+    const addG = add;
+    segments.forEach((t0, si) => {
+      const P = prefixOf(si).length, t = prefixOf(si) + t0;
+      const add = (si_, s, e, o) => { if (s >= P) addG(si_, s - P, e - P, o); };
       let m;
       // 自訂遮蔽詞
       for (const c of opt.custom) {
@@ -209,7 +227,7 @@
       const reId = /(?<![A-Za-z0-9])[A-Za-z][1289ABCDabcd]\d{8}(?![0-9])/g;
       while ((m = reId.exec(t))) add(si, m.index, m.index + 10, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno });
       // 手機
-      const reMob = /(?<![0-9])(?:\+?886[-\s]?|0)9\d{2}[-\s]?\d{3}[-\s]?\d{3}(?![0-9])/g;
+      const reMob = /(?<![0-9])(?:\+?886[-\s.]?|0)9\d{2}[-\s.]?\d{3}[-\s.]?\d{3}(?![0-9])/g;
       while ((m = reMob.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone });
       // 市話
       const reTel = /(?<![0-9])(?:\(0[2-8]\d{0,2}\)|（0[2-8]\d{0,2}）|0[2-8]\d{0,2})[-\s]?\d{3,4}[-\s]?\d{4}(?:\s*(?:#|分機|轉)\s*\d{1,5})?(?![0-9])/g;
@@ -224,11 +242,14 @@
       while ((m = reHealth.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【編號】', pri: PRIORITY.number });
       if (opt.ocr) {
         // 掃描辨識容錯：號碼中夾 1–2 個誤認字（? O l I | 等）
-        const reNoisy = /(?<![0-9A-Za-z])[0-9?OoIl|][0-9?OoIl|\-\s]{6,14}[0-9?OoIl|](?![0-9A-Za-z])/g;
+        const reNoisy = /(?<![0-9A-Za-z])[0-9?!OoIl|][0-9?!OoIl|\-\s]{6,14}[0-9?!OoIl|](?![0-9A-Za-z])/g;
         while ((m = reNoisy.exec(t))) {
-          const d = (m[0].match(/[0-9]/g) || []).length, bad = (m[0].match(/[?OoIl|]/g) || []).length;
+          const d = (m[0].match(/[0-9]/g) || []).length, bad = (m[0].match(/[?!OoIl|]/g) || []).length;
           if (d >= 6 && bad >= 1 && bad <= 2) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 6 });
         }
+        // 辨識出的長串數字（電話、證號讀錯幾個字也算）
+        const reDigits = /(?<![0-9A-Za-z])[0-9?!OoIl|][0-9?!OoIl|\-.\s]{7,16}[0-9?!OoIl|](?![0-9A-Za-z])/g;
+        while ((m = reDigits.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7 && !/\n/.test(m[0])) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 7 });
         const reIdN = /(?<![A-Za-z0-9])[A-Z][12?][0-9?OoIl|]{8}(?![0-9])/g;
         while ((m = reIdN.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7) add(si, m.index, m.index + 10, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno - 1 });
       }
@@ -242,13 +263,15 @@
         const dt = mkDate(toHalf(m[2]), toHalf(m[3]), toHalf(m[4]));
         if (!dt) continue;
         const s = m.index, e = m.index + m[0].length;
-        add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: isBirthCtx(s, e) ? PRIORITY.birth : PRIORITY.date });
+        const isB = isBirthCtx(s, e) || (refDate - dt) / DAY > 365.25 * 40;   // 40 年以前的日期幾乎一定是生日
+        add(si, s, e, { cat: isB ? 'birth' : 'date', date: dt, pri: isB ? PRIORITY.birth : PRIORITY.date });
       }
       const reCompact = /(?<![0-9])((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?![0-9])/g;
       while ((m = reCompact.exec(t))) {
         const dt = mkDate(m[1], m[2], m[3]); if (!dt) continue;
         const s = m.index, e = s + 8;
-        add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: (isBirthCtx(s, e) ? PRIORITY.birth : PRIORITY.date) + 15 });
+        const isB = isBirthCtx(s, e) || (refDate - dt) / DAY > 365.25 * 40;
+        add(si, s, e, { cat: isB ? 'birth' : 'date', date: dt, pri: (isB ? PRIORITY.birth : PRIORITY.date) + 15 });
       }
       const reRoc7 = /(?<![0-9])(0\d{2}|1[01]\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?![0-9])/g;
       while ((m = reRoc7.exec(t))) {
@@ -265,11 +288,13 @@
       }
 
       // 地址
-      const NUM = `[${NUMC}]+`;
-      const TOK = `(?:[${CJK}]{1,3}[村里](?![程民長])|${NUM}鄰|[${CJK}]{1,6}?(?:路|街|大道)|${NUM}段|${NUM}巷|${NUM}弄|${NUM}(?:號|号)|(?:之|-|－)${NUM}|${NUM}(?:樓|F|f)|地下${NUM}樓|B${NUM}|${NUM}室)`;
+      // PDF 常在數字和中文之間插空白、在地址中間換行，這裡都容許
+      const NUM = `[${NUMC}]+[ \\t\\u3000]?`;
+      const TOK0 = `(?:[${CJK}]{1,3}[村里](?![程民長])|${NUM}鄰|[${CJK}]{1,6}?(?:路|街|大道)|${NUM}段|${NUM}巷|${NUM}弄|${NUM}(?:號|号)|(?:之|-|－)[ \\t]?${NUM}|${NUM}(?:樓|F|f)|地下${NUM}樓|B${NUM}|${NUM}室)`;
+      const TOK = `(?:[ \\t\\u3000]*\\n){0,2}[ \\t\\u3000]*${TOK0}`;
       const CITY = `(?:${CITIES.join('|')})`;
       const DIST = `[${CJK}]{1,3}?[鄉鎮市區]`;
-      const reAddr = new RegExp(`(${CITY})?(${DIST})?((?:${TOK})+)`, 'g');
+      const reAddr = new RegExp(`(${CITY})?(${DIST})?(${TOK0}(?:${TOK})*)`, 'g');
       const reCityAt = new RegExp(`^(${CITY})`);
       const reTokAll = new RegExp(`^(?:${TOK})+$`);
       while ((m = reAddr.exec(t))) {
@@ -366,28 +391,52 @@
         let cut = 0;
         for (const b of ORG_BOUNDARY) { const k = pre.lastIndexOf(b); if (k >= 0 && k + b.length > cut) cut = k + b.length; }
         pre = pre.slice(cut); s += cut;
-        if (pre.length < 2 || ORG_GENERIC.has(pre) || /[家間個]$/.test(pre)) continue;
+        if (pre.length < 2 || ORG_GENERIC.has(pre) || (pre.length <= 2 && /[家間個]$/.test(pre))) continue;
         if (allow.has(pre + suf)) continue;
         add(si, s, s + pre.length + suf.length, { cat: 'org', key: pre + suf, orgType: /醫院|診所|醫學中心|分院/.test(suf) ? '醫院' : '機構', pri: PRIORITY.org });
       }
     });
 
+    // 英文名簡稱併入全名（Dewi → Dewi Lestari；王小明 不受影響）
+    const alias = new Map();
+    for (const a of [...persons.keys()]) for (const b of persons.keys()) {
+      if (a !== b && /^[A-Za-z]/.test(a) && b.startsWith(a + ' ')) {
+        const pa = persons.get(a), pb = persons.get(b);
+        pb.first = Math.min(pa.first, pb.first); if (!pb.role) pb.role = pa.role;
+        alias.set(a, b); persons.delete(a); break;
+      }
+    }
     // Pass 2：已知人名擴散到全文（含名字縮寫）
     const personList = [...persons.keys()].sort((a, b) => b.length - a.length);
-    const givenMap = new Map();
+    const givenMap = new Map(), maidenMap = new Map();
     for (const nm of personList) {
       if (/^[A-Za-z]/.test(nm)) continue;
       const sl = SURNAME_COMPOUND.some(c => nm.startsWith(c)) ? 2 : 1;
-      const given = nm.slice(sl);
+      const given = nm.length === 4 && sl === 1 ? nm.slice(2) : nm.slice(sl);   // 冠夫姓取最後兩字
       if (given.length === 2 && !givenMap.has(given)) givenMap.set(given, nm);
+      if (nm.length === 4 && sl === 1 && !persons.has(nm.slice(1))) maidenMap.set(nm.slice(1), nm);   // 吳林玉英 → 林玉英
     }
     segments.forEach((t, si) => {
+      for (const [short, full] of alias) {
+        const re = new RegExp(`(?<![A-Za-z])${esc(short)}(?![A-Za-z])`, 'g'); let mm;
+        while ((mm = re.exec(t))) add(si, mm.index, mm.index + short.length, { cat: 'name', key: full, person: full, pri: PRIORITY.name });
+      }
       for (const nm of personList) {
+        if (/^[A-Za-z]/.test(nm)) {
+          // 英文名：連同後面的姓一起（Dewi → Dewi Lestari）
+          const re = new RegExp(`(?<![A-Za-z])${esc(nm)}(?:[\\s_.\\-]{1,2}[A-Z][a-z]+){0,3}(?![A-Za-z])`, 'g'); let mm;
+          while ((mm = re.exec(t))) add(si, mm.index, mm.index + mm[0].length, { cat: 'name', key: nm, person: nm, pri: PRIORITY.name + 1 });
+          continue;
+        }
         let k = -1;
         while ((k = t.indexOf(nm, k + 1)) >= 0) {
           add(si, k, k + nm.length, { cat: 'name', key: nm, person: nm, pri: PRIORITY.name });
           const pp = persons.get(nm); if (si * 1e7 + k < pp.first) pp.first = si * 1e7 + k;
         }
+      }
+      for (const [v, nm] of maidenMap) {
+        let k = -1;
+        while ((k = t.indexOf(v, k + 1)) >= 0) add(si, k, k + 3, { cat: 'name', key: nm, person: nm, pri: PRIORITY.name });
       }
       for (const [g, nm] of givenMap) {
         let k = -1;

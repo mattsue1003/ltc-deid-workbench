@@ -6,7 +6,7 @@
   const escH = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const S_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-  const CAT_ORDER = ['name', 'idno', 'phone', 'email', 'number', 'birth', 'date', 'address', 'org', 'custom'];
+  const CAT_ORDER = ['field', 'name', 'idno', 'phone', 'email', 'number', 'birth', 'date', 'address', 'org', 'custom'];
 
   // ───────── 程式庫（同網站或內嵌，不連外） ─────────
   window.__LIBDATA = window.__LIBDATA || {};
@@ -79,6 +79,14 @@
     opt.ocr = !!(S.doc.pages && S.doc.pages.some(p => p.ocr));
     S.opt = opt;
     S.res = Deid.analyze(S.doc.segments, opt);
+    // 掃描頁的「表單欄位」遮蓋，以欄位名稱為一項
+    if (S.doc.pages && S.mode !== 'text') {
+      for (const pg of S.doc.pages) for (const f of (pg.fields || [])) {
+        const id = 'field:' + f.lab; let en = S.res.entities.get(id);
+        if (!en) { en = { id, cat: 'field', label: '表單欄位', color: 'custom', original: `「${f.lab}」欄的填寫區`, rep: '整塊遮蓋', conf: 'high', count: 0, variants: new Set() }; S.res.entities.set(id, en); }
+        en.count++;
+      }
+    }
     renderAll();
   }
   let anaT = 0;
@@ -259,7 +267,7 @@
   };
 
   // ═════════ Excel（直接改 XML，保留格式） ═════════
-  const ROLE_OPTS = [['', '（不是個資）'], ['name-個案', '姓名（個案）'], ['name-家屬', '姓名（家屬）'], ['name-人員', '姓名（人員）'], ['idno', '身分證號'], ['phone', '電話'],
+  const ROLE_OPTS = [['', '（不是個資）'], ['name-個案', '姓名（個案）'], ['name-家屬', '姓名（家屬）'], ['name-人員', '姓名（人員）'], ['name-看護', '姓名（看護）'], ['age', '年齡→年齡層'], ['idno', '身分證號'], ['phone', '電話'],
     ['number', '編號／病歷號'], ['birth', '出生日期→年齡層'], ['date', '日期→第N天'], ['address', '地址'], ['drop', '整欄清空']];
   function guessRole(h) {
     h = (h || '').replace(/\s/g, '');
@@ -267,11 +275,13 @@
     if (/(身分證|身份證|統一證號|居留證)/.test(h)) return 'idno';
     if (/(電話|手機|聯絡方式|TEL|Phone)/i.test(h)) return 'phone';
     if (/(出生|生日|DOB)/i.test(h)) return 'birth';
+    if (/^(年齡|歲數|年紀|實歲|足歲)$/.test(h)) return 'age';
     if (/(地址|住址|戶籍|居住地)/.test(h)) return 'address';
-    if (/(病歷|案號|編號|卡號|證號|手冊)/.test(h)) return 'number';
-    if (/(照顧者|家屬|聯絡人|代理人|監護人)/.test(h) && /(姓名|名字|人)$/.test(h)) return 'name-家屬';
-    if (/(個管|居服員|照服員|督導|評估人員|治療師|護理師|社工|填表|承辦)/.test(h)) return 'name-人員';
-    if (/^(個案)?(姓名|名字|案主|個案|服務對象|長者姓名|個案姓名|案主姓名|住民姓名|學員姓名)$/.test(h)) return 'name-個案';
+    if (/(病歷|案號|卡號|證號|手冊|個案編號|ID)/i.test(h)) return 'number';
+    if (/(照顧者|家屬|聯絡人|代理人|監護人|配偶|子女)/.test(h)) return 'name-家屬';
+    if (/(看護|外看|移工)/.test(h)) return 'name-看護';
+    if (/(個管|居服員|照服員|督導|評估人員|訪視人員|服務人員|負責人員|治療師|護理師|社工|填表|承辦|記錄者|紀錄者|人員$)/.test(h)) return 'name-人員';
+    if (/^(個案)?(姓名|名字|案主|個案|服務對象|長者|長者姓名|個案姓名|案主姓名|住民|住民姓名|學員姓名)$/.test(h)) return 'name-個案';
     if (/(日期|時間)/.test(h)) return 'date';
     return '';
   }
@@ -285,7 +295,12 @@
       const out = [];
       doc.sheets.forEach(sh => Object.entries(sh.roles).forEach(([c, r]) => {
         if (!r.startsWith('name-')) return;
-        sh.rows.forEach((row, ri) => { if (ri <= sh.header) return; const v = cellText(row[c]).trim(); if (v.length >= 2 && v.length <= 20) out.push({ name: v, role: r.slice(5) }); });
+        sh.rows.forEach((row, ri) => {
+          if (ri <= sh.header) return;
+          // 「吳林玉英（配偶）」「王小明、李美華」→ 拿掉括號，逐一加入
+          cellText(row[c]).replace(/[（(][^）)]*[）)]/g, ' ').split(/[、,，/／;；\s]+/).map(x => x.trim()).filter(Boolean)
+            .forEach(v => { if (v.length >= 2 && v.length <= 12) out.push({ name: v, role: r.slice(5) }); });
+        });
       }));
       return out;
     };
@@ -297,7 +312,8 @@
       if (role === 'drop') return '';
       if (role === 'idno') return '【身分證號】';
       if (role === 'phone') return '【電話】';
-      if (role === 'number') return '【編號】';
+      if (role === 'number') return /^\d{1,4}$/.test(v) ? null : '【編號】';   // 1、2、3 這種流水號不是個資
+      if (role === 'age') { const n = Math.floor(+v); if (!isFinite(n) || n <= 0) return null; if (n >= 90) return '【90歲以上】'; const lo = Math.floor(n / S.opt.ageBand) * S.opt.ageBand; return `【${lo}–${lo + S.opt.ageBand - 1}歲】`; }
       if (role === 'address') {
         const r = Deid.analyze([v], Object.assign({}, S.opt, { names: [], custom: [] }));
         const a = (r.spans[0] || []).find(sp => sp.id.startsWith('address'));
@@ -403,6 +419,7 @@
           else if (t === 'inlineStr') { const nodes = [...c.getElementsByTagNameNS(S_NS, 't')]; const text = nodes.map(n => n.textContent).join(''); groups.push({ nodes, seg: segments.length }); cell = { seg: segments.length, el: c }; segments.push(text); }
           else if (t === 'str' && v) { groups.push({ nodes: [v], seg: segments.length }); cell = { seg: segments.length, el: c }; segments.push(v.textContent); }
           else if (v) cell = { raw: v.textContent, num: !t || t === 'n', el: c };
+          else if (c.getElementsByTagNameNS(S_NS, 'f').length) cell = { raw: '', num: true, el: c };
           if (!cell) continue;
           (rows[ri] = rows[ri] || [])[ci] = cell;
         }
@@ -436,7 +453,22 @@
           fresh.sheets.forEach((sh, k) => { sh.roles = doc.sheets[k].roles; sh.header = doc.sheets[k].header; });
           for (const g of fresh._groups) applyToNodes(g.nodes, segments[g.seg], Deid.resolve(segments[g.seg], S.res.spans[g.seg], isOn));
           if (fresh._ssDoc) z.file(ssPath, serXml(fresh._ssDoc));
+          let droppedF = false;
           for (const sh of fresh.sheets) {
+            // 公式若引用了被替換的欄（例如年齡＝DATEDIF(出生日期)），改成保留計算結果，避免變成 #VALUE!
+            const repCols = new Set(Object.entries(sh.roles).filter(([, r]) => r && !r.startsWith('name-')).map(([c]) => colName(+c)));
+            const touches = txt => {
+              const refs = (txt.match(/(?<![A-Z$])\$?([A-Z]{1,3})\$?\d+/g) || []).map(r => r.replace(/[$\d]/g, ''));
+              return /(?<![A-Z$])\$?[A-Z]{1,3}:\$?[A-Z]{1,3}(?!\d)/.test(txt) || refs.some(r => repCols.has(r));
+            };
+            if (repCols.size) {
+              const fs = [...sh.xml.getElementsByTagNameNS(S_NS, 'f')];
+              const badShared = new Set(fs.filter(f => f.getAttribute('t') === 'shared' && f.textContent && touches(f.textContent)).map(f => f.getAttribute('si')));
+              for (const f of fs) {
+                const sharedBad = f.getAttribute('t') === 'shared' && badShared.has(f.getAttribute('si'));
+                if (sharedBad || (f.textContent && touches(f.textContent))) { f.parentNode.removeChild(f); droppedF = true; }
+              }
+            }
             sh.rows.forEach((row, ri) => {
               if (ri <= sh.header) return;
               row.forEach((cell, ci) => {
@@ -451,6 +483,12 @@
               });
             });
             z.file(sh.path, serXml(sh.xml));
+          }
+          if (droppedF && z.file('xl/calcChain.xml')) {
+            // 公式移除後，計算鏈要一起刪掉，否則 Excel 開檔會要求修復
+            z.remove('xl/calcChain.xml');
+            z.file('[Content_Types].xml', (await z.file('[Content_Types].xml').async('string')).replace(/<Override[^>]*calcChain[^>]*\/>/g, ''));
+            z.file('xl/_rels/workbook.xml.rels', (await z.file('xl/_rels/workbook.xml.rels').async('string')).replace(/<Relationship[^>]*calcChain[^>]*\/>/g, ''));
           }
           for (const [p, d] of Object.entries(fresh._cmt)) {
             for (const el of d.getElementsByTagName('*')) if (el.localName === 'author') el.textContent = '審閱者';
@@ -513,9 +551,10 @@
 
   // ═════════ 純文字 ═════════
   function textExport(doc, fmt) {
-    const lines = doc.segments.map((t, i) => Deid.render(t, S.res.spans[i], isOn));
+    const segIdx = doc.pages ? doc.pages.map(pg => pg.seg) : doc.segments.map((_, i) => i);   // 掃描頁的第二次辨識不輸出
+    const lines = segIdx.map(i => Deid.render(doc.segments[i], S.res.spans[i], isOn));
     let text;
-    if (doc.pageOf) { text = ''; let last = -1; lines.forEach((l, i) => { const p = doc.pageOf[i]; if (p !== last && doc.pageCount > 1) { text += (last >= 0 ? '\n' : '') + `── 第 ${p + 1} 頁 ──\n`; last = p; } text += l + '\n'; }); }
+    if (doc.pageOf) { text = ''; let last = -1; lines.forEach((l, i) => { const p = doc.pageOf[segIdx[i]]; if (p !== last && doc.pageCount > 1) { text += (last >= 0 ? '\n' : '') + `── 第 ${p + 1} 頁 ──\n`; last = p; } text += l + '\n'; }); }
     else text = lines.join('\n');
     if (fmt === 'docx') return docxFromText(text).then(blob => ({ blob, ext: 'docx' }));
     return { blob: new Blob(['﻿' + text.replace(/\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }), ext: 'txt', text };
@@ -558,7 +597,8 @@
     return w;
   }
   // 由 OCR 結果建立文字與每字的框
-  function ocrToChars(data) {
+  function ocrToChars(data, sc) {
+    sc = sc || 1;
     let text = ''; const boxes = [];
     const isW = c => /[A-Za-z0-9@._\-]/.test(c);
     for (const b of data.blocks || []) for (const p of b.paragraphs) for (const l of p.lines) {
@@ -568,7 +608,7 @@
         for (let k = 0; k < syms.length; k++) {
           const sy = syms[k]; const ch = sy.text || '';
           if (k === 0 && prev && isW(prev) && isW(ch[0] || '')) { text += ' '; boxes.push(null); }
-          const bb = sy.bbox; text += ch; for (let u = 0; u < ch.length; u++) boxes.push({ x: bb.x0, y: bb.y0, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0 });
+          const bb = sy.bbox; text += ch; for (let u = 0; u < ch.length; u++) boxes.push({ x: bb.x0 / sc, y: bb.y0 / sc, w: (bb.x1 - bb.x0) / sc, h: (bb.y1 - bb.y0) / sc });
           prev = ch.slice(-1);
         }
       }
@@ -576,6 +616,68 @@
     }
     return { text, boxes };
   }
+
+  // 表單欄位：找到印刷的欄位名稱，就把右邊的填寫區整塊遮住（手寫看不懂也遮得到）
+  const FIELD_PII = ['個案姓名', '長者姓名', '姓名', '出生年月日', '出生日期', '生日', '身分證字號', '身份證字號', '身分證', '身份證', '聯絡電話', '行動電話', '電話', '手機',
+    '戶籍地址', '居住地址', '通訊地址', '地址', '住址', '主要照顧者', '照顧者', '緊急聯絡人', '聯絡人', '病歷號', '案號', '家屬簽名', '個案簽名', '簽名', '簽章', '訪視人員', '評估人員', '評估者', '填表人', '個管師'];
+  const FIELD_STOP = ['性別', '年齡', '日期', '關係', '診斷', '等級', '身高', '體重', '血型', '婚姻', '教育', '宗教', '語言', '職業', '備註', '時間', '項目', '類別', '頻率'];
+  function findFields(text, boxes, pxW) {
+    // 先找出所有欄位名稱的位置（一行可能有好幾個）
+    const labs = [], all = [...FIELD_PII, ...FIELD_STOP].sort((a, b) => b.length - a.length);
+    let ls = 0;
+    for (const line of text.split('\n')) {
+      const used = new Array(line.length).fill(false);
+      for (const lab of all) {
+        let k = -1;
+        while ((k = line.indexOf(lab, k + 1)) >= 0) {
+          if (used.slice(k, k + lab.length).some(Boolean)) continue;
+          for (let u = k; u < k + lab.length; u++) used[u] = true;
+          // 只認表單上的欄位名稱：前面不是中文字（行首、框線、括號），或後面接冒號；句子裡的「個管師」不算
+          const before = line.slice(0, k).replace(/\s+$/, '').slice(-1), after = line.slice(k + lab.length).replace(/^\s+/, '')[0] || '';
+          if (/[\u4e00-\u9fff，。、；,;]/.test(before) && !/[:：]/.test(after)) continue;
+          const bx = boxes.slice(ls + k, ls + k + lab.length).filter(Boolean);
+          if (!bx.length) continue;
+          const x0 = Math.min(...bx.map(b => b.x)), x1 = Math.max(...bx.map(b => b.x + b.w)), y0 = Math.min(...bx.map(b => b.y)), y1 = Math.max(...bx.map(b => b.y + b.h));
+          labs.push({ lab, pii: FIELD_PII.includes(lab), x0, x1, y0, y1, cy: (y0 + y1) / 2, h: y1 - y0 });
+        }
+      }
+      ls += line.length + 1;
+    }
+    // 每個個資欄位：從欄位名稱右邊，遮到同一列下一個欄位名稱為止
+    const out = [];
+    for (const L of labs) {
+      if (!L.pii) continue;
+      const h = Math.max(L.h, 8);
+      const right = labs.filter(o => o !== L && o.x0 > L.x1 && Math.abs(o.cy - L.cy) < h * 0.9).sort((a, b) => a.x0 - b.x0)[0];
+      const x0 = L.x1 + h * 0.2;
+      const x1 = right ? right.x0 - h * 0.3 : Math.min(pxW - 2, L.x1 + pxW * 0.55);
+      const tall = /簽名|簽章/.test(L.lab) ? 1.8 : 1.0;   // 手寫簽名通常比欄位名稱大很多
+      if (x1 - x0 > h) out.push({ x: x0, y: L.cy - h * tall, w: x1 - x0, h: h * tall * 2, lab: L.lab });
+    }
+    return out;
+  }
+  async function runOCR(c, onp) {
+    const w = await getOCR(onp);
+    w._onp = onp;
+    // 小圖放大到長邊約 2200 像素再辨識（實測 1.5 倍最好；放更大反而變差）
+    const long = Math.max(c.width, c.height), sc = Math.max(1, Math.min(1.6, 2200 / long));
+    let src = c;
+    if (sc > 1.05) { src = document.createElement('canvas'); src.width = Math.round(c.width * sc); src.height = Math.round(c.height * sc); const g = src.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(c, 0, 0, src.width, src.height); }
+    // 兩種版面模式各辨識一次：PSM 3（一般文件）、PSM 11（表單、照片）。兩邊找到的個資都遮。
+    const runs = [];
+    for (const psm of ['3', '11']) {
+      await w.setParameters({ tessedit_pageseg_mode: psm });
+      const r = await w.recognize(src, {}, { blocks: true, text: false });
+      runs.push(Object.assign(ocrToChars(r.data, src === c ? 1 : sc), { conf: r.data.confidence || 0 }));
+    }
+    if (src !== c) src.width = src.height = 1;
+    runs.sort((a, b) => b.conf - a.conf);
+    const [main, alt] = runs;
+    const fields = findFields(main.text, main.boxes, c.width).concat(findFields(alt.text, alt.boxes, c.width));
+    return { text: main.text, boxes: main.boxes, conf: main.conf, alt, fields };
+  }
+
+  if (/[?&]debug\b/.test(location.search)) window.__dbg = { getOCR, ocrToChars, findFields };
 
   // ═════════ PDF ═════════
   class CMapFactory {
@@ -604,6 +706,8 @@
     const doc = Object.assign({ segments: [], pageOf: [], warns: [] }, base);
     // 每頁一段文字（含換行）
     doc.pages.forEach((pg, k) => { pg.seg = doc.segments.length; doc.segments.push(pg.text); doc.pageOf.push(k); });
+    // 第二次辨識的結果：不顯示在文字版，只用來多抓黑框
+    doc.pages.forEach((pg, k) => { if (pg.alt) { pg.altSeg = doc.segments.length; doc.segments.push(pg.alt.text); doc.pageOf.push(k); } });
     doc.pageCount = doc.pages.length;
     doc.modes = [{ v: 'visual', label: '黑框版' }, { v: 'text', label: '文字版' }];
     doc.renderPreview = (view) => {
@@ -654,8 +758,11 @@
   // 依標記算出各頁黑框
   function pageBoxes(pg, view) {
     const out = [];
-    const spans = (S.res && S.res.spans[pg.seg]) || [];
-    const text = S.doc.segments[pg.seg];
+    const srcs = [[pg.seg, pg.boxes]];
+    if (pg.altSeg != null) srcs.push([pg.altSeg, pg.alt.boxes]);
+    for (const [seg, bxs] of srcs) {
+    const spans = (S.res && S.res.spans[seg]) || [];
+    const text = S.doc.segments[seg];
     for (const r of spans) {
       const en = S.res.entities.get(r.id); if (!en) continue;
       const on = isOn(r.id);
@@ -663,13 +770,15 @@
       // 依行合併
       let cur = null;
       for (let i = from; i < r.e; i++) {
-        const b = pg.boxes[i]; if (!b) { if (cur) { out.push(cur); cur = null; } continue; }
+        const b = bxs[i]; if (!b) { if (cur) { out.push(cur); cur = null; } continue; }
         if (cur && Math.abs(b.y - cur.y) < Math.max(b.h, cur.h) * 0.6 && b.x >= cur.x - b.h) { const x2 = Math.max(cur.x + cur.w, b.x + b.w), y2 = Math.max(cur.y + cur.h, b.y + b.h); cur.x = Math.min(cur.x, b.x); cur.y = Math.min(cur.y, b.y); cur.w = x2 - cur.x; cur.h = y2 - cur.y; }
         else { if (cur) out.push(cur); cur = { x: b.x, y: b.y, w: b.w, h: b.h, id: r.id, on, color: en.color, title: `${en.label}：${text.slice(r.s, r.e)} → ${r.rep}` }; }
       }
       if (cur) out.push(cur);
     }
+    }
     out.forEach(b => { const px = Math.max(2, b.h * (pg.ocr ? 0.4 : 0.18)), py = Math.max(2, b.h * (pg.ocr ? 0.18 : 0.12)); b.x -= px; b.y -= py; b.w += 2 * px; b.h += 2 * py; });
+    (pg.fields || []).forEach(f => { const id = 'field:' + f.lab; out.push({ x: f.x, y: f.y, w: f.w, h: f.h, id, on: isOn(id), color: 'custom', title: `「${f.lab}」欄位的填寫區（點一下切換）`, field: true }); });
     (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, title: '手動遮蓋（點一下刪除）', color: 'custom' }));
     return out;
   }
@@ -685,7 +794,7 @@
       const lib = await getPdfjs();
       const data = new Uint8Array(await file.arrayBuffer());
       const pdf = await lib.getDocument({ data, isEvalSupported: false, CMapReaderFactory: CMapFactory, cMapUrl: 'cmaps/', cMapPacked: true, useSystemFonts: true, disableAutoFetch: true, enableXfa: false }).promise;
-      const pages = []; let ocrN = 0;
+      const pages = []; let ocrN = 0, minConf = 100;
       const n = pdf.numPages;
       if (n > 60 && !confirm(`這份 PDF 有 ${n} 頁，處理可能需要較久時間、佔用較多記憶體。要繼續嗎？`)) throw new Error('已取消');
       for (let k = 1; k <= n; k++) {
@@ -699,7 +808,7 @@
         // 不依賴 requestAnimationFrame（分頁在背景時會暫停）
         const raf = window.requestAnimationFrame; window.requestAnimationFrame = cb => setTimeout(cb, 0);
         try { await page.render({ canvasContext: g, viewport: vp }).promise; } finally { window.requestAnimationFrame = raf; }
-        let text = '', boxes = [], ocr = false;
+        let text = '', boxes = [], ocr = false, fields = [], alt = null;
         if (!forceOCR) {
           const tc = await page.getTextContent();
           let lastY = null, lastEnd = null;
@@ -721,19 +830,19 @@
         }
         if (text.replace(/\s/g, '').length < 15) {
           // 掃描頁 → 文字辨識
-          const w = await getOCR((t, f) => progress(t || `文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間'));
-          w._onp = (t, f) => progress(`文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間');
-          const r = await w.recognize(c, {}, { blocks: true, text: false });
-          ({ text, boxes } = ocrToChars(r.data)); ocr = true; ocrN++;
+          const o = await runOCR(c, (t, f) => progress(t || `文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間'));
+          ({ text, boxes } = o); alt = o.alt; ocr = true; ocrN++; fields = o.fields; minConf = Math.min(minConf, o.conf);
         }
         const blob = await canvasToBlob(c, 'image/jpeg', 0.9);
         const url = URL.createObjectURL(blob); S.urls.push(url);
-        pages.push({ text, boxes, ocr, url, pxW: c.width, pxH: c.height, ptW: vp0.width, ptH: vp0.height, manual: [] });
+        pages.push({ text, boxes, ocr, fields, alt, url, pxW: c.width, pxH: c.height, ptW: vp0.width, ptH: vp0.height, manual: [] });
         c.width = c.height = 1; page.cleanup();
       }
       await pdf.destroy();
       const doc = visualDoc({ kind: 'pdf', kindLabel: 'PDF', name: file.name, pages, file });
-      if (ocrN) doc.warns.push({ t: `有 ${ocrN} 頁是掃描影像，已用文字辨識（OCR）讀取。辨識可能有錯字或漏字，請特別仔細檢查黑框版，並手動補遮。` });
+      if (ocrN) doc.warns.push(minConf < 70
+        ? { bad: true, t: `有 ${ocrN} 頁是掃描影像，而且辨識品質偏低（${Math.round(minConf)} 分）。自動遮蓋可能漏掉很多，請在黑框版逐一檢查，把姓名、電話、地址、簽名等欄位用拖曳方式補遮。` }
+        : { t: `有 ${ocrN} 頁是掃描影像，已用文字辨識（OCR）讀取，並依「姓名、電話、地址、簽名」等欄位名稱把填寫區整塊遮住。辨識仍可能有遺漏，請仔細檢查黑框版。` });
       doc.warns.push({ t: '黑框版會把每一頁轉成圖片，原本的文字層不會保留（避免黑框底下還能複製出原文）。', soft: true });
       doc.allOCR = !!forceOCR;
       return doc;
@@ -749,14 +858,14 @@
       const max = 3000, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
       const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-      const w = await getOCR((t, f) => progress(t || '文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間'));
-      w._onp = (t, f) => progress('文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間');
-      const r = await w.recognize(c, {}, { blocks: true, text: false });
-      const { text, boxes } = ocrToChars(r.data);
+      const o = await runOCR(c, (t, f) => progress(t || '文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間'));
+      const { text, boxes, fields, alt } = o;
       const blob = await canvasToBlob(c, 'image/png'); const url = URL.createObjectURL(blob); S.urls.push(url);
-      const pages = [{ text, boxes, ocr: true, url, pxW: c.width, pxH: c.height, ptW: c.width * 0.75, ptH: c.height * 0.75, manual: [] }];
+      const pages = [{ text, boxes, ocr: true, fields, alt, url, pxW: c.width, pxH: c.height, ptW: c.width * 0.75, ptH: c.height * 0.75, manual: [] }];
       const doc = visualDoc({ kind: 'image', kindLabel: '圖片', name: file.name, pages, isPng: /png/i.test(file.type) });
-      doc.warns.push({ t: '圖片已用文字辨識（OCR）讀取，可能有錯字或漏字，請仔細檢查，並用拖曳方式補遮簽名、照片、手寫字。' });
+      doc.warns.push(o.conf < 70
+        ? { bad: true, t: `這張圖片的文字辨識品質偏低（${Math.round(o.conf)} 分，常見於手寫或斜拍）。自動遮蓋可能漏掉很多：請在黑框版逐一檢查，把姓名、電話、地址、簽名等用拖曳方式補遮。` }
+        : { t: '圖片已用文字辨識（OCR）讀取，並依欄位名稱把填寫區整塊遮住；仍可能有遺漏，請仔細檢查，並用拖曳方式補遮簽名、照片、手寫字。' });
       doc.warns.push({ t: '輸出的圖片會重新繪製，原圖的拍攝地點（GPS）等隱藏資訊會一併移除。', soft: true });
       return doc;
     }
@@ -1012,7 +1121,7 @@
   });
 
   $('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.v; renderModes(); renderPreview(); });
-  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; renderAll(); });
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; analyze(); });
   ['#sNames', '#sCustom', '#sAllow'].forEach(id => $(id).addEventListener('input', analyzeSoon));
   ['#sAge', '#sRef', '#sDate', '#sAddr'].forEach(id => $(id).addEventListener('change', analyze));
 
