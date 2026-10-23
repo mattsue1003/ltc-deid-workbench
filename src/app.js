@@ -29,9 +29,15 @@
   const S = { doc: null, res: null, over: new Map(), view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
 
   // ───────── 小工具 ─────────
-  function toast(msg, ms) {
-    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
-    setTimeout(() => t.remove(), ms || 2600);
+  let toastEl = null, toastT = 0;
+  function toast(msg, opt) {
+    opt = typeof opt === 'number' ? { ms: opt } : (opt || {});
+    if (toastEl) toastEl.remove(); clearTimeout(toastT);
+    const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status');
+    const sp = document.createElement('span'); sp.textContent = msg; t.appendChild(sp);
+    if (opt.undo) { const b = document.createElement('button'); b.type = 'button'; b.textContent = '復原'; b.onclick = () => { t.remove(); opt.undo(); }; t.appendChild(b); }
+    document.body.appendChild(t); toastEl = t;
+    toastT = setTimeout(() => t.remove(), opt.ms || (opt.undo ? 5000 : 2600));
   }
   function progress(title, frac, note) {
     const p = $('#prog');
@@ -73,7 +79,6 @@
     opt.ocr = !!(S.doc.pages && S.doc.pages.some(p => p.ocr));
     S.opt = opt;
     S.res = Deid.analyze(S.doc.segments, opt);
-    S.reviewed = false;
     renderAll();
   }
   let anaT = 0;
@@ -82,6 +87,8 @@
   // ───────── 讀檔 ─────────
   async function openFile(file) {
     clearAll(true);
+    // 換新檔案時清空上一份的名單，避免不同個案混用
+    ['#sNames', '#sCustom', '#sAllow'].forEach(id => { $(id).value = ''; });
     const ext = extOf(file.name);
     try {
       let doc;
@@ -100,7 +107,7 @@
     }
   }
   function startDoc(doc) {
-    S.doc = doc; S.over = new Map(); S.view = 'orig'; S.sheet = 0;
+    S.doc = doc; S.over = new Map(); S.view = 'orig'; S.sheet = 0; S.log = []; S.downloaded = false; S.reviewed = false; S.openGrp = null;
     S.mode = doc.modes ? doc.modes[0].v : null;
     $('#start').classList.add('hidden'); $('#work').classList.remove('hidden');
     $('#kindChip').textContent = doc.kindLabel;
@@ -252,7 +259,7 @@
   };
 
   // ═════════ Excel（直接改 XML，保留格式） ═════════
-  const ROLE_OPTS = [['', '—'], ['name-個案', '姓名（個案）'], ['name-家屬', '姓名（家屬）'], ['name-人員', '姓名（人員）'], ['idno', '身分證號'], ['phone', '電話'],
+  const ROLE_OPTS = [['', '（不是個資）'], ['name-個案', '姓名（個案）'], ['name-家屬', '姓名（家屬）'], ['name-人員', '姓名（人員）'], ['idno', '身分證號'], ['phone', '電話'],
     ['number', '編號／病歷號'], ['birth', '出生日期→年齡層'], ['date', '日期→第N天'], ['address', '地址'], ['drop', '整欄清空']];
   function guessRole(h) {
     h = (h || '').replace(/\s/g, '');
@@ -325,7 +332,7 @@
       const maxR = Math.min(sh.rows.length, 300);
       h += '<div style="overflow:auto"><table class="tbl"><thead><tr><th class="rn"></th>';
       for (let c = 0; c < ncol; c++) {
-        h += `<th>${colName(c)}<br><select data-role="${c}" aria-label="${colName(c)} 欄的個資類型">` + ROLE_OPTS.map(([v, l]) => `<option value="${v}" ${sh.roles[c] === v ? 'selected' : ''}>${l}</option>`).join('') + '</select></th>';
+        h += `<th>${colName(c)}<br><select data-role="${c}" data-col="${colName(c)}" class="${sh.roles[c] ? 'set' : ''}" aria-label="${colName(c)} 欄的個資類型">` + ROLE_OPTS.map(([v, l]) => `<option value="${v}" ${sh.roles[c] === v ? 'selected' : ''}>${l}</option>`).join('') + '</select></th>';
       }
       h += '</tr></thead><tbody>';
       for (let r = 0; r < maxR; r++) {
@@ -346,7 +353,7 @@
       }
       h += '</tbody></table></div>';
       if (sh.rows.length > maxR) h += `<p class="note">僅預覽前 ${maxR} 列（共 ${sh.rows.length} 列），下載的檔案會處理全部。</p>`;
-      h = `<p class="note" style="margin-top:0">第 ${sh.header + 1} 列視為標題列。在欄位上方選擇「個資類型」，整欄會一起處理；姓名欄的名字也會在全檔其他地方被替換。</p>` + h;
+      h = `<p class="note" style="margin:0 0 10px">第 ${sh.header + 1} 列視為標題列。系統已依欄名自動判斷（藍色選單）；不對的話直接改選。姓名欄的名字，在全檔其他地方也會一起替換。</p>` + h;
       return h;
     };
     doc.sheets.forEach(sh => {
@@ -603,7 +610,7 @@
       if (S.mode === 'text') {
         return doc.pages.map((pg, k) => `<div class="pagehd">第 ${k + 1} 頁${pg.ocr ? '（文字辨識）' : ''}</div><div class="pagetxt">${segHTML(pg.seg, view) || '<span class="note">（這頁沒有辨識到文字）</span>'}</div>`).join('');
       }
-      let h = '<p class="note" style="margin-top:0">黑色框＝會被遮蓋；虛線框＝目前不遮蓋（點一下切換）。<b>簽名、照片、印章請直接在頁面上拖曳</b>補一個黑框，點黑框可以刪除。</p>';
+      let h = '';
       doc.pages.forEach((pg, k) => {
         h += `<div class="vwrap"><div class="vpage" data-page="${k}" style="aspect-ratio:${pg.pxW}/${pg.pxH};width:${Math.min(900, pg.pxW)}px"><span class="lbl">第 ${k + 1} 頁${pg.ocr ? '・文字辨識' : ''}</span><img alt="" src="${pg.url}">`;
         for (const b of pageBoxes(pg, view)) {
@@ -797,20 +804,40 @@
     for (const r of spans) {
       const en = S.res.entities.get(r.id); if (!en) continue;
       const on = isOn(r.id);
-      h += escH(text.slice(p, r.s)) + `<mark class="m k-${en.color} ${on ? 'on' : 'off'} ${en.conf}" data-id="${escH(r.id)}" title="${escH(en.label + ' → ' + r.rep + (on ? '（點一下取消）' : '（點一下遮蔽）'))}">${escH(text.slice(r.s, r.e))}</mark>`;
+      h += escH(text.slice(p, r.s)) + `<mark class="m k-${en.color} ${on ? 'on' : 'off'} ${en.conf}" data-id="${escH(r.id)}" title="${escH(en.conf === 'suggest' && !S.over.has(r.id) ? '不確定是不是個資，請在右邊判斷' : en.label + ' → ' + r.rep + (on ? '（點一下取消遮蔽）' : '（點一下遮蔽）'))}">${escH(text.slice(r.s, r.e))}</mark>`;
       p = r.e;
     }
     return h + escH(text.slice(p));
   }
 
-  function renderAll() { renderWarns(); renderModes(); renderPreview(); renderList(); renderExport(); }
+  // ───────── 步驟指示 ─────────
+  function pendingList() { return S.res ? [...S.res.entities.values()].filter(e => e.conf === 'suggest' && !S.over.has(e.id)) : []; }
+  function setStep() {
+    $('#btnClear').classList.toggle('hidden', !S.doc);
+    let now = 1, done = 0;
+    if (S.doc) { done = 1; now = 2; if (!pendingList().length && S.reviewed) { done = 2; now = 3; } if (S.downloaded) { done = 3; now = 0; } }
+    $$('#steps li').forEach(li => { const k = +li.dataset.s; li.classList.toggle('done', k <= done); li.classList.toggle('now', k === now); });
+  }
+
+  function renderAll() { renderHowto(); renderWarns(); renderModes(); renderPreview(); renderSide(); }
+  function renderSide() { renderSum(); renderRules(); renderList(); renderExport(); setStep(); }
+  function renderHowto() {
+    const vis = (S.doc.kind === 'pdf' || S.doc.kind === 'image') && S.mode === 'visual';
+    const tips = vis
+      ? '<span class="tip">👆 <b>點黑框</b>：取消／恢復遮蓋</span><span class="tip">✋ <b>在頁面上拖曳</b>：補一個黑框（簽名、照片、印章）</span>'
+      : S.doc.sheets
+        ? '<span class="tip">👆 <b>點彩色字</b>：取消／恢復</span><span class="tip">📋 <b>欄位上方選單</b>：整欄指定個資類型</span>'
+        : '<span class="tip">👆 <b>點彩色字</b>：取消／恢復遮蔽</span><span class="tip">🖱 <b>選取文字</b>：補上漏掉的</span>';
+    const legend = ['name', 'idno', 'phone', 'date', 'address', 'org'].map(c => { const i = Deid.CAT_INFO[c]; return `<span class="lg-chip k-${i.color}">${i.label.replace('／居留證', '')}</span>`; }).join('');
+    $('#howto').innerHTML = tips + `<span class="legend">${legend}</span>`;
+  }
   function renderWarns() {
-    $('#warns').innerHTML = (S.doc.warns || []).map(w => `<div class="warn ${w.bad ? 'bad' : ''}">${w.bad ? '⚠️ ' : (w.soft ? 'ℹ️ ' : '⚠️ ')}${escH(w.t)}</div>`).join('') +
-      (S.doc.kind === 'pdf' && !S.doc.allOCR ? '<div class="warn">切到「文字版」看看：如果文字是亂碼、缺字，或黑框位置跑掉，請 <button type="button" class="btn small" id="btnReocr">改用文字辨識（OCR）重讀</button></div>' : '');
+    $('#warns').innerHTML = (S.doc.warns || []).map(w => `<div class="warn ${w.bad ? 'bad' : w.soft ? 'soft' : ''}">${w.bad ? '⚠️ ' : (w.soft ? 'ℹ️ ' : '⚠️ ')}${escH(w.t)}</div>`).join('') +
+      (S.doc.kind === 'pdf' && !S.doc.allOCR ? '<div class="warn soft">ℹ️ 切到「文字版」看看：如果文字是亂碼或缺字、黑框位置跑掉，請 <button type="button" class="linkbtn" id="btnReocr">改用文字辨識（OCR）重讀</button></div>' : '');
   }
   function renderModes() {
     const ms = S.doc.modes;
-    $('#modeSeg').innerHTML = ms ? ms.map(m => `<button type="button" data-m="${m.v}" class="${S.mode === m.v ? 'on' : ''}">${m.label}</button>`).join('') + (S.doc.reocr ? '' : '') : '';
+    $('#modeSeg').innerHTML = ms ? ms.map(m => `<button type="button" data-m="${m.v}" class="${S.mode === m.v ? 'on' : ''}">${m.label}</button>`).join('') : '';
     $('#modeSeg').classList.toggle('hidden', !ms);
     $$('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
   }
@@ -819,32 +846,74 @@
     pv.innerHTML = S.doc.renderPreview(S.view);
     pv.scrollTop = st;
   }
-  function renderList() {
+  // 找出某實體第一次出現的前後文
+  function contextOf(id) {
+    for (let si = 0; si < S.res.spans.length; si++) for (const sp of S.res.spans[si]) if (sp.id === id) {
+      const t = S.doc.segments[si]; const a = Math.max(0, sp.s - 14), b = Math.min(t.length, sp.e + 14);
+      return (a > 0 ? '…' : '') + escH(t.slice(a, sp.s)).replace(/\n/g, ' ') + `<mark>${escH(t.slice(sp.s, sp.e))}</mark>` + escH(t.slice(sp.e, b)).replace(/\n/g, ' ') + (b < t.length ? '…' : '');
+    }
+    return '';
+  }
+  function renderSum() {
     const ents = [...S.res.entities.values()];
-    const on = ents.filter(e => isOn(e.id));
+    const on = ents.filter(e => isOn(e.id)).length + (S.doc.pages ? S.doc.pages.reduce((n, p) => n + p.manual.length, 0) : 0);
     const sugg = ents.filter(e => e.conf === 'suggest');
-    let h = `<div class="stat"><span><b>${on.length}</b> 項會被替換</span>${sugg.length ? `<span class="chip" style="background:color-mix(in srgb,var(--amber) 25%,transparent)">${sugg.length} 項待確認</span>` : ''}</div>`;
-    if (!ents.length) h += '<p class="note">沒有自動找到個資。請確認是否真的沒有，或在「設定」填入本案人名，也可以直接在左邊選取文字來遮蔽。</p>';
-    const row = e => {
-      const o = isOn(e.id);
-      const vars = [...e.variants].filter(v => v !== e.original);
-      return `<div class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''} aria-label="遮蔽 ${escH(e.original)}"><span class="o" data-go="${escH(e.id)}" title="點一下跳到位置">${escH(e.original)}${vars.length ? ` <span class="n">(${escH(vars.slice(0, 3).join('、'))})</span>` : ''} → <span class="rep">${escH(e.rep || '（清空）')}</span></span><span class="n">×${e.count}</span>` +
-        (e.conf === 'suggest' ? `<span class="why">${escH(e.why)}</span><span class="acts"><button type="button" class="btn small" data-accept="${escH(e.id)}">是人名，加入名單</button><button type="button" class="btn small ghost" data-reject="${escH(e.id)}">不是</button></span>` : '') + '</div>';
-    };
-    if (sugg.length) h += `<div class="grp sugg"><h4>🟡 需要你確認</h4>${sugg.map(row).join('')}</div>`;
+    const pend = pendingList();
+    let h = `<div class="sum-top"><span class="num">${on}</span><span class="lbl">處個資會被替換</span></div>`;
+    if (sugg.length) {
+      const doneN = sugg.length - pend.length;
+      h += `<div class="sum-bar ${pend.length ? '' : 'done'}"><i style="width:${Math.round(doneN / sugg.length * 100)}%"></i></div>`;
+      h += `<div class="sum-sub">${pend.length ? `還有 <b>${pend.length}</b> 個字不確定是不是個資，請幫忙判斷：` : '不確定的項目都判斷完了。'}</div>`;
+    } else if (!ents.length) {
+      h += '<p class="note">沒有自動找到個資。請確認文件是否真的沒有，或在下面補上人名。</p>';
+    }
+    if (pend.length) {
+      h += '<div class="qcards">' + pend.map((e, k) => `<div class="qcard" data-q="${escH(e.id)}">
+        <div class="qn">需要你判斷 ${k + 1}／${pend.length}</div>
+        <div class="q">「<b>${escH(e.original)}</b>」是人名嗎？</div>
+        <div class="ctx" data-go="${escH(e.id)}" title="點一下跳到原文位置">${contextOf(e.id)}</div>
+        <div class="why">${escH(e.why)}</div>
+        <div class="acts"><button type="button" class="btn yes" data-yes="${escH(e.id)}">是，遮蔽它</button><button type="button" class="btn no" data-no="${escH(e.id)}">不是，保留</button></div>
+      </div>`).join('') + '</div>';
+    } else if (sugg.length || (S.log && S.log.length)) {
+      h += '<div class="alldone">✓ 待判斷的項目都處理好了</div>';
+    }
+    if (S.log && S.log.length) {
+      h += '<div class="resolved">' + S.log.slice().reverse().map((l, k) => `<div class="rv"><span class="t">${l.yes ? '✓ 已遮蔽' : '— 保留'}「<b>${escH(l.text)}</b>」${l.yes && l.code ? ` → ${escH(l.code)}` : ''}</span><button type="button" class="linkbtn" data-undo="${S.log.length - 1 - k}">復原</button></div>`).join('') + '</div>';
+    }
+    $('#sumPane').innerHTML = h;
+  }
+  // 使用者加入的規則（人名、其他字詞、不遮蔽）以標籤呈現，可直接移除
+  function renderRules() {
+    const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+    let h = '';
+    lines('#sNames').forEach(l => { const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員)$/.exec(l); h += `<span class="rule k-name">${escH(m ? m[1] : l)}<small>${m ? m[2] : '人名'}</small><button type="button" data-rm="#sNames" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
+    lines('#sCustom').forEach(l => { h += `<span class="rule k-custom">${escH(l.split(/[=＝]/)[0])}<small>其他</small><button type="button" data-rm="#sCustom" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
+    lines('#sAllow').forEach(l => { h += `<span class="rule allow">不遮蔽：${escH(l)}<button type="button" data-rm="#sAllow" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
+    $('#rules').innerHTML = h;
+  }
+  function renderList() {
+    const ents = [...S.res.entities.values()].filter(e => e.conf !== 'suggest' || S.over.has(e.id));
+    if (!ents.length) { $('#listPane').innerHTML = '<div class="lhead"><h3>已找到的個資</h3></div><p class="note">目前沒有。</p>'; return; }
+    const openSet = S.openGrp || (S.openGrp = new Set(['name']));
+    let h = `<div class="lhead"><h3>已找到的個資</h3><span class="n note" style="margin:0">取消勾選＝不遮蔽</span></div>`;
     for (const cat of CAT_ORDER) {
-      const list = ents.filter(e => e.cat === cat && e.conf !== 'suggest');
+      const list = ents.filter(e => e.cat === cat);
       if (!list.length) continue;
       const info = Deid.CAT_INFO[cat];
-      h += `<div class="grp"><h4><span class="dot k-${info.color}"></span>${info.label}（${list.length}）</h4>${list.map(row).join('')}</div>`;
+      const onN = list.filter(e => isOn(e.id)).length;
+      h += `<details class="grp k-${info.color}" data-cat="${cat}" ${openSet.has(cat) ? 'open' : ''}><summary><span class="dot"></span>${info.label}<span class="cnt">${onN}／${list.length}</span></summary>` +
+        list.map(e => {
+          const o = isOn(e.id);
+          return `<label class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''}><span class="o">${escH(e.original)}<span class="arrow">→</span><span class="rep">${escH(e.rep || '（清空）')}</span> <span class="n">${e.count} 處</span></span><button type="button" class="go" data-go="${escH(e.id)}">看位置</button></label>`;
+        }).join('') + '</details>';
     }
-    h += '<p class="note">漏掉的字：在左邊用滑鼠選取文字，就能加入遮蔽。</p>';
     $('#listPane').innerHTML = h;
   }
   function outputsFor() {
     if (S.doc.kind === 'pdf' || S.doc.kind === 'image') {
       if (S.mode === 'text') return [{ v: 'txt', label: '純文字 .txt' }, { v: 'docx', label: 'Word .docx' }];
-      return S.doc.kind === 'pdf' ? [{ v: 'pdf', label: 'PDF（黑框，轉為圖片）' }, { v: 'jpg', label: '圖片 JPG' }]
+      return S.doc.kind === 'pdf' ? [{ v: 'pdf', label: 'PDF（黑框）' }, { v: 'jpg', label: '圖片 JPG（黑框）' }]
         : [{ v: S.doc.isPng ? 'png' : 'jpg', label: S.doc.isPng ? '圖片 PNG（黑框）' : '圖片 JPG（黑框）' }, { v: 'pdf', label: 'PDF（黑框）' }];
     }
     return S.doc.outputs;
@@ -859,60 +928,115 @@
   function renderExport() {
     const outs = outputsFor();
     const cur = S.outFmt && outs.some(o => o.v === S.outFmt) ? S.outFmt : outs[0].v; S.outFmt = cur;
-    const canCopy = ['txt', 'docx', 'csv'].includes(S.doc.kind) || S.mode === 'text' || S.doc.kind === 'xlsx';
-    $('#expPane').innerHTML = `<h3>③ 輸出</h3>
-      <select id="outFmt" aria-label="輸出格式">${outs.map(o => `<option value="${o.v}" ${o.v === cur ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
-      <label style="font-size:13px;color:var(--muted)">檔名（已自動去除檔名中的個資）<input type="text" id="outName" value="${escH(S.outName || safeName())}"></label>
-      <label class="ck"><input type="checkbox" id="ckRev" ${S.reviewed ? 'checked' : ''}><span>我已逐項檢查標記，也了解自動偵測可能有遺漏。</span></label>
-      <div class="row"><button class="btn primary" id="btnDl" type="button" ${S.reviewed ? '' : 'disabled'}>下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button" ${S.reviewed ? '' : 'disabled'}>複製文字</button>` : ''}</div>`;
+    const canCopy = ['txt', 'docx', 'csv', 'xlsx'].includes(S.doc.kind) || S.mode === 'text';
+    const pend = pendingList().length;
+    const ready = !pend && S.reviewed;
+    $('#expPane').innerHTML = `<h3><i>3</i>下載去識別化檔案</h3>
+      <div class="fields">
+        <label class="f">格式<select id="outFmt">${outs.map(o => `<option value="${o.v}" ${o.v === cur ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label>
+        <label class="f">檔名（已去除個資）<input type="text" id="outName" value="${escH(S.outName || safeName())}"></label>
+      </div>
+      <div class="check">
+        <div class="ci ${pend ? 'todo' : 'ok'}" id="ciPend"><span class="ico">${pend ? '!' : '✓'}</span><span>${pend ? `還有 <b>${pend}</b> 項待判斷（上方黃色卡片）` : '待判斷的項目都處理好了'}</span></div>
+        <label class="ci" id="ciRev"><input type="checkbox" id="ckRev" ${S.reviewed ? 'checked' : ''}><span>我已從頭到尾看過左邊的標記，了解自動偵測可能有遺漏</span></label>
+      </div>
+      <div class="dlmsg" id="dlMsg"></div>
+      <div class="row"><button class="btn ${ready ? 'primary' : 'waiting'} lg" id="btnDl" type="button" style="flex:2">⬇ 下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button">複製文字</button>` : ''}</div>`;
+  }
+  // 下載前檢查：沒完成就說清楚還差什麼
+  function gate() {
+    const pend = pendingList();
+    const msg = $('#dlMsg');
+    if (pend.length) {
+      msg.textContent = `還有 ${pend.length} 項需要你判斷，請先回答上方的黃色卡片。`;
+      const c = $('#sumPane .qcard');
+      if (c) { c.scrollIntoView({ block: 'center', behavior: 'smooth' }); c.classList.remove('pulse'); void c.offsetWidth; c.classList.add('pulse'); }
+      return false;
+    }
+    if (!S.reviewed) {
+      msg.textContent = '請先勾選「我已從頭到尾看過」，確認後才能下載。';
+      const r = $('#ciRev'); r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake');
+      return false;
+    }
+    msg.textContent = '';
+    return true;
   }
 
   // ───────── 事件 ─────────
-  function toggleEnt(id, val) {
-    const v = val == null ? !isOn(id) : val;
-    S.over.set(id, v); S.reviewed = false;
-    renderPreview(); renderList(); renderExport();
+  function flashEl(id) {
+    const el = $(`#preview [data-id="${CSS.escape(id)}"]`);
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
+    else toast('這一項在目前的檢視中看不到');
   }
+  function toggleEnt(id, val, quiet) {
+    const was = isOn(id);
+    const v = val == null ? !was : val;
+    S.over.set(id, v);
+    renderPreview(); renderSide();
+    if (!quiet) {
+      const en = S.res.entities.get(id);
+      toast(`${v ? '已遮蔽' : '已取消遮蔽'}「${en.original}」${en.count > 1 ? `（全文 ${en.count} 處）` : ''}`, { undo: () => toggleEnt(id, was, true) });
+    }
+  }
+  function appendLine(id, line) { const ta = $(id); const ls = ta.value.split('\n').map(s => s.trim()).filter(Boolean); if (!ls.includes(line)) ls.push(line); ta.value = ls.join('\n'); }
+  function removeLine(id, line) { const ta = $(id); ta.value = ta.value.split('\n').map(s => s.trim()).filter(s => s && s !== line).join('\n'); }
+  function codeOf(name) { const e = S.res && S.res.entities.get('name:' + name); return e ? e.rep : ''; }
   function addName(name, role) {
-    const ta = $('#sNames'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + name + (role ? ' ' + role : '');
+    appendLine('#sNames', name + (role ? ' ' + role : ''));
     analyze();
+    const c = codeOf(name);
+    toast(`已加入「${name}」${c ? `→ ${c}` : ''}，全文同樣的字都會替換`, { undo: () => { removeLine('#sNames', name + (role ? ' ' + role : '')); analyze(); } });
+    return c;
   }
-  function addCustom(word) { const ta = $('#sCustom'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + word; analyze(); }
+  function addCustom(word) {
+    appendLine('#sCustom', word); analyze();
+    toast(`已加入「${word}」，全文同樣的字都會遮蔽`, { undo: () => { removeLine('#sCustom', word); analyze(); } });
+  }
+  function addAllow(word) {
+    appendLine('#sAllow', word); analyze();
+    toast(`「${word}」不會被遮蔽`, { undo: () => { removeLine('#sAllow', word); analyze(); } });
+  }
 
   $('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
-  // 整頁也可以拖放
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => { e.preventDefault(); if (e.target.closest && e.target.closest('#drop')) return; const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) openFile(f); });
 
-  $('#btnPaste').addEventListener('click', () => { const t = $('#pasteIn').value; if (!t.trim()) { toast('請先貼上文字'); return; } startDoc(Txt.fromText(t)); $('#pasteIn').value = ''; });
+  $('#btnPaste').addEventListener('click', () => { const t = $('#pasteIn').value; if (!t.trim()) { toast('請先貼上文字'); $('#pasteIn').focus(); return; } startDoc(Txt.fromText(t)); $('#pasteIn').value = ''; });
   $('#btnSample').addEventListener('click', () => {
     $('#pasteIn').value = '個案姓名：王小明，男，民國34年3月5日出生，身分證字號 A123456789。\n住址：基隆市七堵區明德一路123巷4號5樓，聯絡電話 02-2456-7890。\n主要照顧者為案妻李美華（0912-345-678），長子王大同住在新北市汐止區大同路二段100號。\n113/05/12 個管師陳怡君到宅訪視，王伯伯表示右膝疼痛，想去基隆長庚醫院回診。\n外籍看護 Siti 協助沐浴，照服員小美每週一三五到宅服務。小明今日情緒穩定。\n病歷號：0012345678，健保卡號 0000 1234 5678。\n2024年6月3日 轉介居家復能，建議安裝扶手、練習坐到站。';
+    $('#btnPaste').focus();
   });
 
   $('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.v; renderModes(); renderPreview(); });
   $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; renderAll(); });
-  $$('.tabs button').forEach(b => b.addEventListener('click', () => {
-    $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-    $('#listPane').classList.toggle('hidden', b.dataset.t !== 'list'); $('#setPane').classList.toggle('hidden', b.dataset.t !== 'set');
-  }));
   ['#sNames', '#sCustom', '#sAllow'].forEach(id => $(id).addEventListener('input', analyzeSoon));
   ['#sAge', '#sRef', '#sDate', '#sAddr'].forEach(id => $(id).addEventListener('change', analyze));
 
   $('#preview').addEventListener('click', e => {
     const sb = e.target.closest('[data-sheet]'); if (sb) { S.sheet = +sb.dataset.sheet; renderPreview(); renderExport(); return; }
     const mk = e.target.closest('mark.m[data-id], .rp[data-id], .box[data-id]');
-    if (mk && !(window.getSelection() + '').trim()) { toggleEnt(mk.dataset.id); return; }
+    if (mk && !(window.getSelection() + '').trim()) {
+      const id = mk.dataset.id;
+      // 待判斷的字 → 帶到右邊的卡片
+      const q = pendingList().some(p => p.id === id) && $(`#sumPane [data-q="${CSS.escape(id)}"]`);
+      if (q) { q.scrollIntoView({ block: 'center', behavior: 'smooth' }); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); return; }
+      toggleEnt(id); return;
+    }
     const mb = e.target.closest('.box[data-manual]');
-    if (mb) { const pg = S.doc.pages[+mb.closest('.vpage').dataset.page]; pg.manual.splice(+mb.dataset.manual, 1); S.reviewed = false; renderPreview(); renderExport(); }
+    if (mb) {
+      const pg = S.doc.pages[+mb.closest('.vpage').dataset.page]; const [rm] = pg.manual.splice(+mb.dataset.manual, 1);
+      renderPreview(); renderSide();
+      toast('已刪除手動黑框', { undo: () => { pg.manual.push(rm); renderPreview(); renderSide(); } });
+    }
   });
   $('#warns').addEventListener('click', async e => {
     if (e.target.id !== 'btnReocr') return;
-    const f = S.doc.file, names = $('#sNames').value;
-    try { const d = await Pdf.load(f, true); clearAll(true); $('#sNames').value = names; startDoc(d); }
+    const f = S.doc.file, keep = ['#sNames', '#sCustom', '#sAllow'].map(id => $(id).value);
+    try { const d = await Pdf.load(f, true); clearAll(true); ['#sNames', '#sCustom', '#sAllow'].forEach((id, k) => { $(id).value = keep[k]; }); startDoc(d); }
     catch (err) { progress(false); alert('重讀失敗：' + (err.message || err)); }
   });
   $('#preview').addEventListener('change', e => {
@@ -920,19 +1044,51 @@
     const sh = S.doc.sheets[S.sheet]; const c = +sel.dataset.role;
     if (sel.value) sh.roles[c] = sel.value; else delete sh.roles[c];
     analyze();
+    toast(sel.value ? `${sel.dataset.col || ''} 欄已設為「${sel.options[sel.selectedIndex].text}」` : '已取消這一欄的設定');
+  });
+
+  // 問答卡片、復原、看位置
+  $('#sumPane').addEventListener('click', e => {
+    const y = e.target.closest('[data-yes]'), n = e.target.closest('[data-no]'), u = e.target.closest('[data-undo]'), g = e.target.closest('[data-go]');
+    S.log = S.log || [];
+    if (y) {
+      const en = S.res.entities.get(y.dataset.yes);
+      const role = (/接在「(.+?)」/.exec(en.why) || [])[1] ? labelRole(/接在「(.+?)」/.exec(en.why)[1]) : null;
+      if (en.original.length >= 2 && !/^[A-Za-z]/.test(en.original) || /^[A-Za-z]/.test(en.original)) {
+        appendLine('#sNames', en.original + (role ? ' ' + role : '')); analyze();
+        S.log.push({ text: en.original, yes: true, line: en.original + (role ? ' ' + role : ''), list: '#sNames', code: codeOf(en.original) });
+      } else { S.over.set(en.id, true); S.log.push({ text: en.original, yes: true, id: en.id }); }
+      renderSide();
+      toast(`已遮蔽「${en.original}」${codeOf(en.original) ? ' → ' + codeOf(en.original) : ''}`);
+    } else if (n) {
+      const en = S.res.entities.get(n.dataset.no);
+      appendLine('#sAllow', en.original); analyze();
+      S.log.push({ text: en.original, yes: false, line: en.original, list: '#sAllow' });
+      renderSide();
+      toast(`「${en.original}」保留原樣`);
+    } else if (u) {
+      const l = S.log.splice(+u.dataset.undo, 1)[0];
+      if (l.list) { removeLine(l.list, l.line); analyze(); } else { S.over.delete(l.id); renderPreview(); renderSide(); }
+      toast(`已復原「${l.text}」，請重新判斷`);
+    } else if (g) flashEl(g.dataset.go);
+  });
+  $('#addForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = $('#addText').value.trim(), k = $('#addKind').value;
+    if (!t) { toast('請先輸入要遮蔽的字'); $('#addText').focus(); return; }
+    if (k === 'custom') addCustom(t);
+    else if (t.length < 2) { toast('人名至少 2 個字；單一字請選「其他字詞」'); return; }
+    else addName(t, k);
+    $('#addText').value = ''; $('#addText').focus();
+  });
+  $('#rules').addEventListener('click', e => {
+    const b = e.target.closest('[data-rm]'); if (!b) return;
+    removeLine(b.dataset.rm, b.dataset.line); analyze();
+    toast(`已移除「${b.dataset.line.split(/[\s=＝]/)[0]}」`, { undo: () => { appendLine(b.dataset.rm, b.dataset.line); analyze(); } });
   });
   $('#listPane').addEventListener('change', e => { const r = e.target.closest('.ent'); if (r && e.target.type === 'checkbox') toggleEnt(r.dataset.id, e.target.checked); });
-  $('#listPane').addEventListener('click', e => {
-    const a = e.target.closest('[data-accept]');
-    if (a) { const en = S.res.entities.get(a.dataset.accept); addName(en.original, (/接在「(.+?)」/.exec(en.why) || [])[1] ? labelRole((/接在「(.+?)」/.exec(en.why) || [])[1]) : null); return; }
-    const rj = e.target.closest('[data-reject]');
-    if (rj) { toggleEnt(rj.dataset.reject, false); return; }
-    const g = e.target.closest('[data-go]');
-    if (g) {
-      const el = $(`#preview [data-id="${CSS.escape(g.dataset.go)}"]`);
-      if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400); }
-    }
-  });
+  $('#listPane').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); flashEl(g.dataset.go); } });
+  $('#listPane').addEventListener('toggle', e => { const d = e.target.closest('details[data-cat]'); if (!d) return; S.openGrp = S.openGrp || new Set(); d.open ? S.openGrp.add(d.dataset.cat) : S.openGrp.delete(d.dataset.cat); }, true);
   function labelRole(l) { if (/照服員|居服員|個管|督導|社工|護理|醫|治療師|照專/.test(l)) return '人員'; if (/看護|外看|移工|傭/.test(l)) return '看護'; if (/個案|案主|長者|住民|學員/.test(l)) return '個案'; return '家屬'; }
 
   // 選取文字 → 加入遮蔽
@@ -945,7 +1101,7 @@
     const sel = window.getSelection(); const t = (sel + '').trim();
     if (!t || !S.doc || !sel.rangeCount || !$('#preview').contains(sel.anchorNode) || t.length > 60 || /\n/.test(t)) { pop.classList.add('hidden'); return; }
     const rc = sel.getRangeAt(0).getBoundingClientRect();
-    pop.innerHTML = `<button type="button" data-a="name-個案">人名・個案</button><button type="button" data-a="name-家屬">人名・家屬</button><button type="button" data-a="name-人員">人名・人員</button><button type="button" data-a="name-看護">看護</button><button type="button" data-a="custom">其他（地名、機構…）</button><button type="button" data-a="allow">這不是個資</button>`;
+    pop.innerHTML = `<div class="sp-t">把「<b>${escH(t)}</b>」當作：</div><div class="sp-g"><button type="button" data-a="name-個案">個案姓名</button><button type="button" data-a="name-家屬">家屬姓名</button><button type="button" data-a="name-人員">工作人員</button><button type="button" data-a="name-看護">看護</button><button type="button" data-a="custom" class="wide" style="background:var(--soft)">其他要遮蔽的字（地名、機構…）</button><button type="button" data-a="allow" class="wide">這不是個資，不要遮蔽</button></div>`;
     pop.dataset.text = t;
     pop.classList.remove('hidden');
     const w = pop.offsetWidth;
@@ -957,10 +1113,9 @@
     const b = e.target.closest('button'); if (!b) return;
     const t = pop.dataset.text; pop.classList.add('hidden'); window.getSelection().removeAllRanges();
     if (b.dataset.a === 'custom') addCustom(t);
-    else if (b.dataset.a === 'allow') { const ta = $('#sAllow'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + t; analyze(); }
-    else if (t.length < 2) toast('人名至少要 2 個字；單一字請用「其他」');
+    else if (b.dataset.a === 'allow') addAllow(t);
+    else if (t.length < 2) toast('人名至少 2 個字；單一字請用「其他要遮蔽的字」');
     else addName(t, b.dataset.a.slice(5));
-    toast('已加入，全文同樣的字都會一起處理');
   });
 
   // 黑框版：拖曳新增
@@ -984,45 +1139,52 @@
     if (d.x1 == null || Math.abs(d.x1 - d.x0) < 6 || Math.abs(d.y1 - d.y0) < 6) return;
     const pg = S.doc.pages[+d.pgEl.dataset.page];
     const k = pg.pxW / d.r.width;
-    pg.manual.push({ x: Math.min(d.x0, d.x1) * k, y: Math.min(d.y0, d.y1) * k, w: Math.abs(d.x1 - d.x0) * k, h: Math.abs(d.y1 - d.y0) * k });
-    S.reviewed = false; renderPreview(); renderExport();
+    const box = { x: Math.min(d.x0, d.x1) * k, y: Math.min(d.y0, d.y1) * k, w: Math.abs(d.x1 - d.x0) * k, h: Math.abs(d.y1 - d.y0) * k };
+    pg.manual.push(box);
+    renderPreview(); renderSide();
+    toast('已加上黑框', { undo: () => { pg.manual.splice(pg.manual.indexOf(box), 1); renderPreview(); renderSide(); } });
   });
 
   $('#expPane').addEventListener('change', e => {
     if (e.target.id === 'outFmt') S.outFmt = e.target.value;
-    if (e.target.id === 'ckRev') { S.reviewed = e.target.checked; $('#btnDl').disabled = !S.reviewed; const c = $('#btnCopy'); if (c) c.disabled = !S.reviewed; }
+    if (e.target.id === 'ckRev') { S.reviewed = e.target.checked; renderExport(); setStep(); }
   });
   $('#expPane').addEventListener('input', e => { if (e.target.id === 'outName') S.outName = e.target.value; });
   $('#expPane').addEventListener('click', async e => {
-    if (e.target.id === 'btnDl') {
+    const btn = e.target.closest('button'); if (!btn) return;
+    if (btn.id === 'btnDl') {
+      if (!gate()) return;
       try {
-        e.target.disabled = true;
+        btn.disabled = true; btn.textContent = '產生檔案中…';
         const r = await S.doc.export(S.outFmt);
         download(r.blob, ($('#outName').value.trim() || '文件_去識別化') + '.' + r.ext);
-        toast('已下載。請存放在機構規定的位置，原始檔不要上傳雲端。', 4200);
+        S.downloaded = true; setStep();
+        toast('✓ 已下載。請存放在機構規定的位置，原始檔不要上傳雲端。', { ms: 5000 });
       } catch (err) { console.error(err); alert('輸出失敗：' + (err.message || err)); }
-      finally { progress(false); const b = $('#btnDl'); if (b) b.disabled = !S.reviewed; }
+      finally { progress(false); renderExport(); }
     }
-    if (e.target.id === 'btnCopy') {
+    if (btn.id === 'btnCopy') {
+      if (!gate()) return;
       let text;
       if (S.doc.sheets) text = S.doc.sheets[S.sheet].rows.map((row, ri) => row.map((cell, ci) => { if (!cell) return ''; if (ri > S.doc.sheets[S.sheet].header) { const rr = S.doc.roleRep(S.doc.sheets[S.sheet], ci, cell); if (rr != null) return rr; } return cell.seg != null ? Deid.render(S.doc.segments[cell.seg], S.res.spans[cell.seg], isOn) : (cell.raw || ''); }).join('\t')).join('\n');
       else text = textExport(S.doc, 'txt').text;
-      try { await navigator.clipboard.writeText(text); toast('已複製處理後的文字'); }
-      catch (err) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('已複製處理後的文字'); }
+      try { await navigator.clipboard.writeText(text); }
+      catch (err) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+      toast('✓ 已複製處理後的文字');
     }
   });
 
   function clearAll(silent) {
     S.urls.forEach(u => URL.revokeObjectURL(u)); S.urls = [];
-    S.doc = null; S.res = null; S.over = new Map(); S.outName = null; S.outFmt = null; S.reviewed = false;
-    $('#preview').innerHTML = ''; $('#listPane').innerHTML = ''; $('#expPane').innerHTML = ''; $('#warns').innerHTML = '';
+    S.doc = null; S.res = null; S.over = new Map(); S.outName = null; S.outFmt = null; S.reviewed = false; S.log = []; S.downloaded = false;
+    $('#preview').innerHTML = ''; $('#listPane').innerHTML = ''; $('#expPane').innerHTML = ''; $('#warns').innerHTML = ''; $('#sumPane').innerHTML = ''; $('#rules').innerHTML = '';
     if (!silent) {
       ['#sNames', '#sCustom', '#sAllow', '#pasteIn'].forEach(id => { $(id).value = ''; });
-      $('#work').classList.add('hidden'); $('#start').classList.remove('hidden');
+      $('#work').classList.add('hidden'); $('#start').classList.remove('hidden'); setStep();
       toast('已清除這個分頁裡的所有資料');
     }
   }
-  $('#btnClear').addEventListener('click', () => { if (!S.doc || confirm('要清除目前的檔案、標記與設定嗎？')) clearAll(false); });
+  $('#btnClear').addEventListener('click', () => { if (!S.doc || confirm('要清除目前的檔案、標記與設定，重新開始嗎？')) clearAll(false); });
   window.addEventListener('beforeunload', e => { if (S.doc) { e.preventDefault(); e.returnValue = ''; } });
 
   // 隱私說明＋連線測試
@@ -1037,5 +1199,6 @@
     catch (err) { res.textContent = '✅ 已被封鎖：這個網頁無法把資料送到任何外部網站。'; res.style.color = 'var(--ok)'; }
     document.removeEventListener('securitypolicyviolation', onV);
   });
+  setStep();
   $('#sRef').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 })();

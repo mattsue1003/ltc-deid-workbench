@@ -17,101 +17,104 @@
   <div class="top-in">
     <div class="brand">
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3v5.5c0 4.7-3.2 8.5-7.5 10.5-4.3-2-7.5-5.8-7.5-10.5V5.5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>
-      <h1>長照識別化｜個案資料工作台<small>Word・Excel・PDF・掃描檔　去識別化，在你的電腦裡完成</small></h1>
+      <h1>長照識別化<span class="bar">｜</span><span class="sub">個案資料工作台</span></h1>
     </div>
-    <button class="lock" id="btnLock" type="button" title="點我看怎麼查證">🔒 <span>離線處理中</span><span class="long">｜資料不離開這台電腦</span></button>
-    <button class="btn small danger" id="btnClear" type="button">清除全部</button>
+    <ol class="steps" id="steps" aria-label="步驟">
+      <li data-s="1"><i>1</i><span>上傳</span></li>
+      <li data-s="2"><i>2</i><span>檢查</span></li>
+      <li data-s="3"><i>3</i><span>下載</span></li>
+    </ol>
+    <div class="top-act">
+      <button class="lock" id="btnLock" type="button" title="點我看怎麼查證"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>離線處理</span></button>
+      <button class="btn small ghost" id="btnClear" type="button">重新開始</button>
+    </div>
   </div>
 </header>
 
 <main>
-  <!-- 開始 -->
+  <!-- ① 上傳 -->
   <section id="start">
+    <div class="intro">
+      <h2>把個案資料，變成可以分享的版本</h2>
+      <p>上傳檔案，系統會用顏色標出姓名、電話、地址等個資；你確認後，就能下載去識別化的檔案。<b>全程在你的電腦裡完成，不會上傳。</b></p>
+    </div>
     <div class="hero">
       <label class="drop" id="drop" for="fileIn">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-        <div class="big">把檔案拖進來，或點這裡選擇</div>
-        <div class="fmt"><span class="chip">Word .docx</span><span class="chip">Excel .xlsx</span><span class="chip">CSV</span><span class="chip">PDF</span><span class="chip">掃描檔／照片 JPG・PNG</span><span class="chip">文字檔 .txt</span></div>
-        <div class="note">檔案只在這個瀏覽器分頁裡讀取，不會上傳；關掉分頁就消失。</div>
+        <span class="drop-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+        <span class="big">拖曳檔案到這裡</span>
+        <span class="btn primary lg">選擇檔案</span>
+        <span class="fmt"><span class="chip">Word</span><span class="chip">Excel</span><span class="chip">CSV</span><span class="chip">PDF</span><span class="chip">掃描檔・照片</span><span class="chip">.txt</span></span>
         <input type="file" id="fileIn" class="sr" accept=".docx,.xlsx,.xlsm,.csv,.txt,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.bmp,.gif,.tif,.tiff">
       </label>
       <div class="card paste">
-        <h2>或直接貼上文字</h2>
-        <textarea id="pasteIn" placeholder="例如：個案姓名：王小明，民國34年3月5日出生，住基隆市七堵區明德一路123號，主要照顧者為案妻李美華（0912-345-678）……"></textarea>
-        <div class="row" style="margin-top:10px"><button class="btn primary" id="btnPaste" type="button">開始去識別化</button><button class="btn" id="btnSample" type="button">放一段範例試試</button></div>
+        <h3>沒有檔案？直接貼上文字</h3>
+        <textarea id="pasteIn" placeholder="把個案紀錄貼在這裡…"></textarea>
+        <div class="row"><button class="btn primary" id="btnPaste" type="button">開始檢查</button><button class="btn" id="btnSample" type="button">用範例試試看</button></div>
       </div>
     </div>
     <div class="info-grid">
-      <div class="card info">
-        <h3>會自動找出並替換</h3>
-        <ul>
-          <li>姓名→代號（個案A、家屬B、人員C），同一人全文一致</li>
-          <li>身分證、居留證、電話、Email、LINE ID</li>
-          <li>病歷號、長照案號、健保卡號、身障手冊編號</li>
-          <li>出生日期→年齡層；服務日期→第 N 天</li>
-          <li>地址只保留縣市＋鄉鎮市區</li>
-          <li>醫院、機構名稱，與稱謂（王伯伯→A伯伯）</li>
-        </ul>
+      <div class="info">
+        <h3><span class="ic">🔍</span>自動找出</h3>
+        <p>姓名、稱謂、身分證、電話、Email、病歷號、健保卡號、生日、日期、地址、醫院與機構名稱。</p>
       </div>
-      <div class="card info">
-        <h3>流程</h3>
-        <ul>
-          <li><b>上傳</b>：檔案在本機讀取</li>
-          <li><b>檢查</b>：彩色標記可點擊取消；漏掉的用滑鼠選取補上</li>
-          <li><b>輸出</b>：Word 出 Word、Excel 出 Excel；PDF／圖片可出黑框版或文字版</li>
-        </ul>
-        <p class="note">掃描檔會先做中文文字辨識（OCR），第一次需要幾秒載入。</p>
+      <div class="info">
+        <h3><span class="ic">🔁</span>這樣替換</h3>
+        <p>姓名→個案A、家屬B（同一人全文一致）；生日→年齡層；日期→第 N 天；地址只留縣市＋鄉鎮區。</p>
       </div>
-      <div class="card info">
-        <h3>使用前須知</h3>
-        <ul>
-          <li><b>自動偵測一定會有遺漏</b>，尤其是沒有稱謂、混在句子裡的人名。請在「設定」填入本案人名清單，並逐項檢查。</li>
-          <li>簽名、照片、印章請在黑框版用滑鼠拖曳補遮。</li>
-          <li>去識別化不等於完全匿名：罕見疾病＋小地方仍可能被認出。</li>
-        </ul>
+      <div class="info">
+        <h3><span class="ic">⚠️</span>請記得</h3>
+        <p>自動偵測一定會有遺漏，下載前要看過一遍。簽名、照片請在黑框版用滑鼠補遮。</p>
       </div>
     </div>
   </section>
 
-  <!-- 工作區 -->
+  <!-- ② 檢查 ③ 下載 -->
   <section id="work" class="hidden">
-    <div class="wbar">
-      <span class="chip" id="kindChip"></span>
+    <div class="docbar">
+      <span class="chip kind" id="kindChip"></span>
       <span class="fname" id="fname"></span>
-      <span style="flex:1"></span>
-      <div class="seg" id="modeSeg"></div>
-      <div class="seg" id="viewSeg"><button type="button" data-v="orig" class="on">原文＋標記</button><button type="button" data-v="after">處理後預覽</button></div>
+      <span class="grow"></span>
+      <div class="seg" id="modeSeg" role="group" aria-label="輸出方式"></div>
+      <div class="seg" id="viewSeg" role="group" aria-label="檢視"><button type="button" data-v="orig" class="on">標記檢查</button><button type="button" data-v="after">結果預覽</button></div>
     </div>
     <div class="work">
-      <div>
+      <div class="main-col">
+        <div class="howto" id="howto"></div>
         <div class="warns" id="warns"></div>
         <div class="preview" id="preview"></div>
       </div>
-      <aside class="side">
-        <div class="sidebox" style="flex:1">
-          <div class="tabs"><button type="button" data-t="list" class="on">標記清單</button><button type="button" data-t="set">設定</button></div>
-          <div class="sidebody" id="listPane"></div>
-          <div class="sidebody set hidden" id="setPane">
-            <label>本案人名清單 <span class="hint">一行一位，可加角色：王小明 個案／李美華 家屬／陳怡君 人員／Siti 看護。填了之後抓得最準。</span></label>
-            <textarea id="sNames" placeholder="王小明 個案&#10;李美華 家屬"></textarea>
-            <label>其他要遮蔽的詞 <span class="hint">一行一個，可指定替換文字：臺大醫院=某醫學中心</span></label>
-            <textarea id="sCustom" placeholder="七堵長青活動中心&#10;臺大醫院=某醫學中心"></textarea>
-            <label>不要遮蔽的詞 <span class="hint">被誤判的字詞放這裡，一行一個</span></label>
-            <textarea id="sAllow" placeholder="林口"></textarea>
-            <label>出生日期改成</label>
-            <select id="sAge"><option value="5">5 歲一級（80–84 歲）</option><option value="10">10 歲一級（80–89 歲）</option></select>
-            <label>年齡計算基準日 <span class="hint">預設今天；寫歷史紀錄時可改成評估日</span></label>
-            <input type="date" id="sRef">
-            <label>服務／就醫日期改成</label>
-            <select id="sDate"><option value="relative">第 N 天（保留先後順序）</option><option value="yearmonth">只留年月（2024年5月）</option><option value="keep">不處理</option></select>
-            <label>地址保留到</label>
-            <select id="sAddr"><option value="district">縣市＋鄉鎮市區</option><option value="city">只留縣市</option><option value="none">全部移除</option></select>
-            <label>文件中的圖片（Word／Excel）</label>
-            <select id="sImg"><option value="gray">換成灰色方塊（建議）</option><option value="keep">保留原圖（請自行確認圖片沒有個資）</option></select>
-            <p class="note" style="margin-top:14px">設定只存在這個分頁，關掉就清空。</p>
-          </div>
-          <div class="exp" id="expPane"></div>
+      <aside class="side" id="side">
+        <div class="panel" id="sumPane"></div>
+        <div class="panel" id="addPane">
+          <h3>漏掉的人名或字詞，在這裡補上</h3>
+          <form class="addrow" id="addForm" autocomplete="off">
+            <input type="text" id="addText" placeholder="例如：王小明、七堵長青會" aria-label="要遮蔽的字">
+            <select id="addKind" aria-label="類型"><option value="個案">個案姓名</option><option value="家屬">家屬姓名</option><option value="人員">工作人員</option><option value="看護">看護</option><option value="custom">其他字詞</option></select>
+            <button class="btn primary" type="submit">加入</button>
+          </form>
+          <p class="note">也可以直接在左邊<b>用滑鼠選取文字</b>來加入。全文相同的字都會一起處理。</p>
+          <div id="rules"></div>
         </div>
+        <div class="panel" id="listPane"></div>
+        <details class="panel set" id="setWrap">
+          <summary>進階設定</summary>
+          <label>本案人名清單 <span class="hint">一行一位，可加角色：王小明 個案／李美華 家屬</span></label>
+          <textarea id="sNames"></textarea>
+          <label>其他要遮蔽的詞 <span class="hint">可指定替換文字：臺大醫院=某醫學中心</span></label>
+          <textarea id="sCustom"></textarea>
+          <label>不要遮蔽的詞 <span class="hint">被誤判的字詞，一行一個</span></label>
+          <textarea id="sAllow"></textarea>
+          <div class="grid2">
+            <div><label>出生日期改成</label><select id="sAge"><option value="5">5 歲一級</option><option value="10">10 歲一級</option></select></div>
+            <div><label>年齡基準日</label><input type="date" id="sRef"></div>
+            <div><label>服務日期改成</label><select id="sDate"><option value="relative">第 N 天</option><option value="yearmonth">只留年月</option><option value="keep">不處理</option></select></div>
+            <div><label>地址保留到</label><select id="sAddr"><option value="district">縣市＋鄉鎮區</option><option value="city">只留縣市</option><option value="none">全部移除</option></select></div>
+          </div>
+          <label>文件中的圖片（Word／Excel）</label>
+          <select id="sImg"><option value="gray">換成灰色方塊（建議）</option><option value="keep">保留原圖</option></select>
+          <p class="note">設定只存在這個分頁，關掉就清空。</p>
+        </details>
+        <div class="panel exp" id="expPane"></div>
       </aside>
     </div>
   </section>
