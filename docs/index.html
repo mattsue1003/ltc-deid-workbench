@@ -1,0 +1,1938 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 安全設定：禁止網頁連到任何外部網址（connect-src 只允許 data:，不經網路），所有程式都在這個檔案或同一網站內 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src data:; media-src 'none'; object-src 'none'; frame-src 'none'; child-src blob:; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>長照識別化工作台</title>
+<meta name="description" content="給長照人員的個案資料去識別化工具：Word、Excel、PDF、掃描檔都在自己的瀏覽器裡處理，資料不上傳。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23028090'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V9z' fill='none' stroke='white' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M12 16l3 3 5-6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>:root{
+  --bg:#f4f7f7; --panel:#ffffff; --ink:#12343B; --ink2:#4a6268; --muted:#7b8f94; --line:#dde6e7; --soft:#eef4f4;
+  --teal:#028090; --teal-d:#016570; --orange:#E8552D; --amber:#F4A93C; --ok:#2e8b57; --warn:#b4540e; --danger:#c0392b;
+  --c-name:#e8552d; --c-name-bg:#fde3da; --c-id:#7b4fc4; --c-id-bg:#ece3fb; --c-phone:#1f6fc4; --c-phone-bg:#dfeafb;
+  --c-date:#2f8a3d; --c-date-bg:#dff3e2; --c-addr:#0a7f8c; --c-addr-bg:#d9f0f2; --c-org:#b07a00; --c-org-bg:#fbefcf;
+  --c-custom:#5d6a70; --c-custom-bg:#e6eaeb;
+  --shadow:0 1px 2px rgba(18,52,59,.06),0 4px 16px rgba(18,52,59,.06);
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1c1f; --panel:#16272b; --ink:#e7f0f1; --ink2:#b5c7ca; --muted:#8aa0a4; --line:#27403f; --soft:#1c3236;
+  --teal:#2bb3c0; --teal-d:#5fd0db; --orange:#ff7a52;
+  --c-name-bg:#4a2419; --c-id-bg:#33264f; --c-phone-bg:#1c304b; --c-date-bg:#1d3a22; --c-addr-bg:#143a3e; --c-org-bg:#43350f; --c-custom-bg:#2a3437;
+  --c-name:#ff8a66; --c-id:#b394ef; --c-phone:#75aef0; --c-date:#72c47f; --c-addr:#5fcbd6; --c-org:#e7b84a; --c-custom:#a9b6ba;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1c1f; --panel:#16272b; --ink:#e7f0f1; --ink2:#b5c7ca; --muted:#8aa0a4; --line:#27403f; --soft:#1c3236;
+  --teal:#2bb3c0; --teal-d:#5fd0db; --orange:#ff7a52;
+  --c-name-bg:#4a2419; --c-id-bg:#33264f; --c-phone-bg:#1c304b; --c-date-bg:#1d3a22; --c-addr-bg:#143a3e; --c-org-bg:#43350f; --c-custom-bg:#2a3437;
+  --c-name:#ff8a66; --c-id:#b394ef; --c-phone:#75aef0; --c-date:#72c47f; --c-addr:#5fcbd6; --c-org:#e7b84a; --c-custom:#a9b6ba;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25); color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei","Heiti TC",sans-serif;font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--teal)}
+.hidden{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+.top-in{max-width:1400px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;margin-right:auto}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--teal);display:grid;place-items:center;flex:none}
+.logo svg{width:22px;height:22px}
+.brand h1{font-size:18px;margin:0;line-height:1.25;letter-spacing:.02em}
+.brand h1 small{display:block;font-size:12px;color:var(--muted);font-weight:500;letter-spacing:0}
+.lock{display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent);color:var(--ok);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:600}
+.lock:hover{background:color-mix(in srgb,var(--ok) 18%,transparent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px;font-size:15px;font-weight:600;min-height:40px}
+.btn:hover{border-color:var(--teal)}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.primary:hover{background:var(--teal-d)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.danger{color:var(--danger)}
+.btn.small{min-height:32px;padding:4px 10px;font-size:14px}
+.btn.ghost{border-color:transparent;background:transparent}
+
+main{max-width:1400px;margin:0 auto;padding:20px 16px 60px}
+
+/* start */
+.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:stretch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px}
+.drop{border:2px dashed color-mix(in srgb,var(--teal) 55%,var(--line));border-radius:var(--r);background:color-mix(in srgb,var(--teal) 5%,var(--panel));padding:36px 20px;text-align:center;transition:.15s;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:260px}
+.drop:hover,.drop.over{background:color-mix(in srgb,var(--teal) 12%,var(--panel));border-color:var(--teal)}
+.drop .big{font-size:22px;font-weight:700}
+.drop .fmt{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600;background:var(--soft);color:var(--ink2);border:1px solid var(--line)}
+.paste textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);resize:vertical}
+.paste h2,.info h3{margin:0 0 8px;font-size:17px}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+.info p,.info li{color:var(--ink2);font-size:15px}
+.info ul{padding-left:20px;margin:6px 0}
+.note{font-size:14px;color:var(--muted)}
+
+/* workspace */
+.wbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.fname{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:7px 12px;font-size:14px;font-weight:600;color:var(--ink2);min-height:36px}
+.seg button.on{background:var(--teal);color:#fff}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+.preview{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px 24px;min-height:60vh;max-height:calc(100vh - 170px);overflow:auto;position:relative}
+.preview .para{margin:0 0 .55em;white-space:pre-wrap;overflow-wrap:anywhere}
+.preview .part{font-size:12px;color:var(--muted);font-weight:700;margin:16px 0 6px;border-top:1px dashed var(--line);padding-top:8px}
+.preview .pagehd{font-size:13px;color:var(--muted);font-weight:700;margin:18px 0 6px}
+.preview .pagetxt{white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid var(--line);padding-left:12px}
+.side{position:sticky;top:76px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 92px)}
+.sidebox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:transparent;padding:10px;font-weight:700;color:var(--muted);border-bottom:3px solid transparent}
+.tabs button.on{color:var(--teal);border-bottom-color:var(--teal)}
+.sidebody{overflow:auto;padding:12px 14px;min-height:0}
+.stat{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.stat b{font-size:22px}
+.grp{margin:8px 0 14px}
+.grp h4{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:6px}
+.grp h4 .dot{width:10px;height:10px;border-radius:3px}
+.grp.sugg{background:color-mix(in srgb,var(--amber) 14%,transparent);border:1px solid color-mix(in srgb,var(--amber) 50%,transparent);border-radius:10px;padding:8px 10px}
+.ent{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:5px 4px;border-radius:8px;font-size:14px}
+.ent:hover{background:var(--soft)}
+.ent input{width:18px;height:18px;accent-color:var(--teal)}
+.ent .o{overflow-wrap:anywhere;cursor:pointer}
+.ent .o s{color:var(--muted)}
+.ent .rep{font-weight:700}
+.ent .n{font-size:12px;color:var(--muted)}
+.ent .why{grid-column:2/4;font-size:12px;color:var(--warn)}
+.ent .acts{grid-column:2/4;display:flex;gap:6px}
+.ent.off .o{opacity:.55}
+
+/* marks */
+mark.m{background:var(--mk-bg);color:inherit;border-bottom:2px solid var(--mk);border-radius:3px;padding:0 1px;cursor:pointer}
+mark.m.off{background:transparent;border-bottom:2px dotted var(--mk);opacity:.9}
+mark.m.suggest.off{border-bottom-style:dashed;background:color-mix(in srgb,var(--amber) 18%,transparent)}
+mark.m.flash{outline:3px solid var(--orange);outline-offset:1px}
+.rp{background:var(--mk-bg);color:var(--mk);font-weight:700;border-radius:4px;padding:0 3px;cursor:pointer}
+.k-name{--mk:var(--c-name);--mk-bg:var(--c-name-bg)}
+.k-id{--mk:var(--c-id);--mk-bg:var(--c-id-bg)}
+.k-phone{--mk:var(--c-phone);--mk-bg:var(--c-phone-bg)}
+.k-date{--mk:var(--c-date);--mk-bg:var(--c-date-bg)}
+.k-addr{--mk:var(--c-addr);--mk-bg:var(--c-addr-bg)}
+.k-org{--mk:var(--c-org);--mk-bg:var(--c-org-bg)}
+.k-custom{--mk:var(--c-custom);--mk-bg:var(--c-custom-bg)}
+.dot.k-name,.dot.k-id,.dot.k-phone,.dot.k-date,.dot.k-addr,.dot.k-org,.dot.k-custom{background:var(--mk)}
+
+/* tables */
+.sheettabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tbl{border-collapse:collapse;font-size:14px;min-width:100%}
+.tbl th,.tbl td{border:1px solid var(--line);padding:4px 8px;vertical-align:top;white-space:pre-wrap;max-width:320px;overflow-wrap:anywhere}
+.tbl thead th{background:var(--soft);position:sticky;top:-20px;z-index:2}
+.tbl th.rn{color:var(--muted);font-weight:500;background:var(--soft)}
+.tbl select{font-size:12px;max-width:150px;border:1px solid var(--line);border-radius:6px;padding:2px;background:var(--panel)}
+.tbl td.role{background:color-mix(in srgb,var(--teal) 8%,transparent)}
+.tbl .hdrrow td{font-weight:700;background:var(--soft)}
+
+/* visual pages */
+.vpage{position:relative;margin:0 auto 18px;box-shadow:0 0 0 1px var(--line),var(--shadow);background:#fff;user-select:none;touch-action:none;max-width:100%}
+.vpage img{display:block;width:100%;height:auto;pointer-events:none}
+.vpage .lbl{position:absolute;left:0;top:-22px;font-size:12px;color:var(--muted);font-weight:700}
+.box{position:absolute;border:2px solid var(--mk);background:color-mix(in srgb,var(--mk) 25%,transparent);cursor:pointer;border-radius:2px}
+.box.on{background:rgba(0,0,0,.82);border-color:#000}
+.box.off{background:transparent;border-style:dashed}
+.box.manual{--mk:#000}
+.box.drawing{border:2px dashed var(--orange);background:rgba(232,85,45,.15);pointer-events:none}
+.vwrap{padding-top:22px}
+
+/* export */
+.exp{padding:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;background:color-mix(in srgb,var(--teal) 4%,var(--panel))}
+.exp h3{margin:0;font-size:15px}
+.exp label.ck{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.exp label.ck input{width:18px;height:18px;margin-top:3px;accent-color:var(--teal);flex:none}
+.exp select,.exp input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel);font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>.btn{flex:1}
+
+/* settings */
+.set label{display:block;font-weight:700;font-size:14px;margin:12px 0 4px}
+.set .hint{font-weight:400;color:var(--muted);font-size:12px;display:block}
+.set textarea{width:100%;min-height:80px;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);font-size:14px;resize:vertical}
+.set select,.set input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel);font-size:14px}
+
+/* warnings */
+.warns{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.warn{border-radius:10px;padding:8px 12px;font-size:14px;background:color-mix(in srgb,var(--amber) 16%,transparent);border:1px solid color-mix(in srgb,var(--amber) 55%,transparent)}
+.warn.bad{background:color-mix(in srgb,var(--danger) 10%,transparent);border-color:color-mix(in srgb,var(--danger) 45%,transparent)}
+
+/* selection popup */
+.selpop{position:fixed;z-index:50;background:var(--ink);color:#fff;border-radius:10px;padding:6px;display:flex;gap:4px;flex-wrap:wrap;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:320px}
+.selpop button{border:0;border-radius:7px;background:rgba(255,255,255,.12);color:#fff;padding:5px 9px;font-size:13px;font-weight:600}
+.selpop button:hover{background:var(--orange)}
+
+/* modal */
+dialog{border:0;border-radius:16px;padding:0;max-width:640px;width:calc(100% - 32px);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35);margin:auto}
+dialog::backdrop{background:rgba(10,25,28,.55)}
+.dlg{padding:22px 24px}
+.dlg h2{margin:0 0 10px;font-size:20px}
+.dlg ol{padding-left:20px}
+.dlg li{margin:6px 0}
+.dlg code{background:var(--soft);border-radius:5px;padding:1px 5px;font-size:13px}
+.testres{margin-top:8px;font-weight:700}
+
+/* progress */
+.prog{position:fixed;inset:0;z-index:60;background:rgba(10,25,28,.55);display:grid;place-items:center;padding:16px}
+.prog .card{width:min(440px,100%);text-align:center}
+.bar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden;margin:12px 0 6px}
+.bar i{display:block;height:100%;width:0;background:var(--teal);transition:width .2s}
+
+footer{max-width:1400px;margin:0 auto;padding:10px 16px 30px;color:var(--muted);font-size:13px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;z-index:70;font-weight:600;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+
+@media (max-width:980px){
+  .hero{grid-template-columns:1fr}
+  .info-grid{grid-template-columns:1fr}
+  .work{grid-template-columns:1fr}
+  .side{position:static;max-height:none}
+  .preview{max-height:none;min-height:40vh;padding:14px}
+}
+@media (max-width:560px){
+  .brand h1{font-size:16px}
+  .lock span.long{display:none}
+  .drop{min-height:200px;padding:24px 12px}
+}
+@media print{.top,.side,footer{display:none}.work{display:block}.preview{max-height:none;box-shadow:none;border:0}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3v5.5c0 4.7-3.2 8.5-7.5 10.5-4.3-2-7.5-5.8-7.5-10.5V5.5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>
+      <h1>長照識別化｜個案資料工作台<small>Word・Excel・PDF・掃描檔　去識別化，在你的電腦裡完成</small></h1>
+    </div>
+    <button class="lock" id="btnLock" type="button" title="點我看怎麼查證">🔒 <span>離線處理中</span><span class="long">｜資料不離開這台電腦</span></button>
+    <button class="btn small danger" id="btnClear" type="button">清除全部</button>
+  </div>
+</header>
+
+<main>
+  <!-- 開始 -->
+  <section id="start">
+    <div class="hero">
+      <label class="drop" id="drop" for="fileIn">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <div class="big">把檔案拖進來，或點這裡選擇</div>
+        <div class="fmt"><span class="chip">Word .docx</span><span class="chip">Excel .xlsx</span><span class="chip">CSV</span><span class="chip">PDF</span><span class="chip">掃描檔／照片 JPG・PNG</span><span class="chip">文字檔 .txt</span></div>
+        <div class="note">檔案只在這個瀏覽器分頁裡讀取，不會上傳；關掉分頁就消失。</div>
+        <input type="file" id="fileIn" class="sr" accept=".docx,.xlsx,.xlsm,.csv,.txt,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.bmp,.gif,.tif,.tiff">
+      </label>
+      <div class="card paste">
+        <h2>或直接貼上文字</h2>
+        <textarea id="pasteIn" placeholder="例如：個案姓名：王小明，民國34年3月5日出生，住基隆市七堵區明德一路123號，主要照顧者為案妻李美華（0912-345-678）……"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="btnPaste" type="button">開始去識別化</button><button class="btn" id="btnSample" type="button">放一段範例試試</button></div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="card info">
+        <h3>會自動找出並替換</h3>
+        <ul>
+          <li>姓名→代號（個案A、家屬B、人員C），同一人全文一致</li>
+          <li>身分證、居留證、電話、Email、LINE ID</li>
+          <li>病歷號、長照案號、健保卡號、身障手冊編號</li>
+          <li>出生日期→年齡層；服務日期→第 N 天</li>
+          <li>地址只保留縣市＋鄉鎮市區</li>
+          <li>醫院、機構名稱，與稱謂（王伯伯→A伯伯）</li>
+        </ul>
+      </div>
+      <div class="card info">
+        <h3>流程</h3>
+        <ul>
+          <li><b>上傳</b>：檔案在本機讀取</li>
+          <li><b>檢查</b>：彩色標記可點擊取消；漏掉的用滑鼠選取補上</li>
+          <li><b>輸出</b>：Word 出 Word、Excel 出 Excel；PDF／圖片可出黑框版或文字版</li>
+        </ul>
+        <p class="note">掃描檔會先做中文文字辨識（OCR），第一次需要幾秒載入。</p>
+      </div>
+      <div class="card info">
+        <h3>使用前須知</h3>
+        <ul>
+          <li><b>自動偵測一定會有遺漏</b>，尤其是沒有稱謂、混在句子裡的人名。請在「設定」填入本案人名清單，並逐項檢查。</li>
+          <li>簽名、照片、印章請在黑框版用滑鼠拖曳補遮。</li>
+          <li>去識別化不等於完全匿名：罕見疾病＋小地方仍可能被認出。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工作區 -->
+  <section id="work" class="hidden">
+    <div class="wbar">
+      <span class="chip" id="kindChip"></span>
+      <span class="fname" id="fname"></span>
+      <span style="flex:1"></span>
+      <div class="seg" id="modeSeg"></div>
+      <div class="seg" id="viewSeg"><button type="button" data-v="orig" class="on">原文＋標記</button><button type="button" data-v="after">處理後預覽</button></div>
+    </div>
+    <div class="work">
+      <div>
+        <div class="warns" id="warns"></div>
+        <div class="preview" id="preview"></div>
+      </div>
+      <aside class="side">
+        <div class="sidebox" style="flex:1">
+          <div class="tabs"><button type="button" data-t="list" class="on">標記清單</button><button type="button" data-t="set">設定</button></div>
+          <div class="sidebody" id="listPane"></div>
+          <div class="sidebody set hidden" id="setPane">
+            <label>本案人名清單 <span class="hint">一行一位，可加角色：王小明 個案／李美華 家屬／陳怡君 人員／Siti 看護。填了之後抓得最準。</span></label>
+            <textarea id="sNames" placeholder="王小明 個案&#10;李美華 家屬"></textarea>
+            <label>其他要遮蔽的詞 <span class="hint">一行一個，可指定替換文字：臺大醫院=某醫學中心</span></label>
+            <textarea id="sCustom" placeholder="七堵長青活動中心&#10;臺大醫院=某醫學中心"></textarea>
+            <label>不要遮蔽的詞 <span class="hint">被誤判的字詞放這裡，一行一個</span></label>
+            <textarea id="sAllow" placeholder="林口"></textarea>
+            <label>出生日期改成</label>
+            <select id="sAge"><option value="5">5 歲一級（80–84 歲）</option><option value="10">10 歲一級（80–89 歲）</option></select>
+            <label>年齡計算基準日 <span class="hint">預設今天；寫歷史紀錄時可改成評估日</span></label>
+            <input type="date" id="sRef">
+            <label>服務／就醫日期改成</label>
+            <select id="sDate"><option value="relative">第 N 天（保留先後順序）</option><option value="yearmonth">只留年月（2024年5月）</option><option value="keep">不處理</option></select>
+            <label>地址保留到</label>
+            <select id="sAddr"><option value="district">縣市＋鄉鎮市區</option><option value="city">只留縣市</option><option value="none">全部移除</option></select>
+            <label>文件中的圖片（Word／Excel）</label>
+            <select id="sImg"><option value="gray">換成灰色方塊（建議）</option><option value="keep">保留原圖（請自行確認圖片沒有個資）</option></select>
+            <p class="note" style="margin-top:14px">設定只存在這個分頁，關掉就清空。</p>
+          </div>
+          <div class="exp" id="expPane"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>長照識別化｜個案資料工作台・純本機處理，不連網、不使用 AI、不儲存資料</span>
+  <span>教材設計｜愛迪樂 鍾孟修 職能治療師</span>
+</footer>
+
+<div class="selpop hidden" id="selpop"></div>
+<div class="prog hidden" id="prog"><div class="card"><b id="progT">處理中…</b><div class="bar"><i id="progB"></i></div><div class="note" id="progN"></div></div></div>
+
+<dialog id="dlgLock">
+  <div class="dlg">
+    <h2>🔒 資料不會離開你的電腦</h2>
+    <p>這個網頁所有的處理（讀檔、文字辨識、偵測、輸出）都在你的瀏覽器裡完成，沒有伺服器、沒有 AI、沒有統計追蹤，也不存任何資料。</p>
+    <p><b>網頁內建「禁止連外」的安全設定</b>：就算程式想送資料出去，瀏覽器也會擋下來。你可以自己查證：</p>
+    <ol>
+      <li><b>連線測試</b>：按下面的按鈕，網頁會「試著」連到外部網站，正常應該顯示「已被封鎖」。</li>
+      <li><b>斷網測試</b>：網頁打開後拔掉網路或開飛航模式，照樣能上傳、處理、下載。</li>
+      <li><b>開發者工具</b>：按 <code>F12</code>（Mac：<code>⌥⌘I</code>）→「網路／Network」分頁，處理檔案時不會出現任何上傳。</li>
+      <li><b>離線版</b>：機構可以下載單一 HTML 檔，請資訊人員檢查後放在內網或單機使用。</li>
+    </ol>
+    <div class="row"><button class="btn primary" id="btnTest" type="button">連線測試</button><a class="btn" id="btnOffline" href="offline.html" download="長照識別化工作台_離線版.html">下載離線版</a></div>
+    <div class="testres" id="testRes"></div>
+    <div class="row" style="margin-top:14px"><button class="btn" type="button" onclick="this.closest('dialog').close()">關閉</button></div>
+  </div>
+</dialog>
+
+
+<script>/* 長照識別化｜個資偵測引擎
+ * 純本機規則比對：輸入多段文字（segments），輸出每段的標記區間與實體清單。
+ * 不使用網路、不儲存任何資料。 */
+(function (root) {
+  'use strict';
+
+  // ───────── 字典 ─────────
+  const SURNAME_COMPOUND = ['歐陽', '司馬', '諸葛', '上官', '司徒', '張簡', '范姜', '東方', '皇甫', '夏侯', '長孫', '慕容',
+    '公孫', '令狐', '端木', '尉遲', '鍾離', '宇文', '呼延', '南宮', '西門', '軒轅', '周黃', '張廖', '陳黃', '劉張', '江謝'];
+  const SURNAME_SINGLE = '陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏孫戴范方宋鄧杜傅侯曹薛丁卓阮馬董溫唐藍蔣石古紀姚連馮歐程湯田康姜白汪鄒尤巫鐘黎涂龔嚴韓袁金童陸夏柳凃邵錢伍倪于譚駱熊任甘秦顧毛章史官萬俞雷粘饒葛闕孔利邢費殷褚岳尹鄞彭麥封房郝花莫裴龐祝歐陽易冉喬牛鄔熊辜黃侯應賀符包宮伍葉滕寇谷鄞冷艾邰蒲覃凌魯段龍伍游';
+  const SURNAME_SET = new Set(SURNAME_SINGLE.split(''));
+
+  // 稱謂：長的放前面
+  const TITLES = ['職能治療師', '物理治療師', '語言治療師', '心理師', '個管師', '社工師', '護理師', '治療師', '營養師', '藥師',
+    '居服員', '照服員', '督導', '主任', '院長', '所長', '老師', '醫師', '醫生', '個管', '社工', '護士',
+    '先生', '小姐', '女士', '太太', '伯伯', '伯母', '阿伯', '爺爺', '奶奶', '阿公', '阿嬤', '阿媽', '婆婆', '阿婆',
+    '公公', '阿姨', '叔叔', '阿叔', '嬸嬸', '大哥', '大姐', '大嫂', '姐姐', '姊姊', '哥哥', '媽媽', '爸爸', '老闆',
+    '伯', '姨', '叔', '嬸', '嬤', '姐', '姊', '哥', '嫂', '婆'];
+  // 全名＋這些稱謂時，才把前面當成全名（避免「高血壓阿嬤」）
+  const FULLNAME_TITLES = ['職能治療師', '物理治療師', '語言治療師', '心理師', '個管師', '社工師', '護理師', '治療師', '營養師',
+    '藥師', '居服員', '照服員', '督導', '主任', '老師', '醫師', '先生', '小姐', '女士', '太太'];
+  const STAFF_TITLES = new Set(['職能治療師', '物理治療師', '語言治療師', '心理師', '個管師', '社工師', '護理師', '治療師', '營養師',
+    '藥師', '居服員', '照服員', '督導', '主任', '院長', '所長', '老師', '醫師', '醫生', '個管', '社工', '護士']);
+
+  // 標籤 → 角色
+  const ROLE_LABELS = [
+    ['個案', ['個案姓名', '案主姓名', '服務對象', '被照顧者', '受照顧者', '個案', '案主', '長者', '住民', '學員', '姓名', '病人', '患者']],
+    ['家屬', ['緊急聯絡人', '主要照顧者', '案孫女', '案孫子', '聯絡人', '照顧者', '代理人', '監護人', '家屬', '案妻', '案夫', '案子', '案女', '案媳',
+      '案孫', '案兄', '案弟', '案姐', '案姊', '案妹', '案母', '案父', '案婿', '長子', '次子', '三子', '么子', '長女', '次女', '三女', '么女',
+      '兒子', '女兒', '媳婦', '女婿', '孫子', '孫女', '配偶', '妻子', '丈夫', '老伴', '外孫', '姪子', '姪女', '外甥']],
+    ['看護', ['外籍看護工', '外籍看護', '外籍家庭看護', '看護工', '看護', '外看', '移工', '印傭', '菲傭', '越傭', '幫傭', '外勞']],
+    ['人員', ['照顧管理專員', '職能治療師', '物理治療師', '語言治療師', '照管專員', '主治醫師', '評估人員', '訪視人員', '個管師', '居服員',
+      '照服員', '居督', '督導', '社工師', '社工', '護理師', '護士', '醫師', '醫生', '治療師', '營養師', '藥師', '填表人', '評估者',
+      '記錄者', '紀錄者', '記錄人', '紀錄人', '承辦人', '個管', '照專', '簽名']]
+  ];
+  const LABEL_LIST = [];
+  ROLE_LABELS.forEach(([role, arr]) => arr.forEach(w => LABEL_LIST.push([w, role])));
+  LABEL_LIST.sort((a, b) => b[0].length - a[0].length);
+
+  // 名字不可能出現的字（遇到就停）
+  const NAME_STOP = new Set(('今昨於表說的在有為因主與和及自已目現每需會可無很也都是稱先後到從曾仍將要能被讓把向對等之並另或但且則就才又再皆均亦乃即個案家屬住' +
+    '日月年時分天週次位名人歲床號電話地址生出性男女病診醫院所心這那此其他她它我你們了過著嗎呢吧啊喔哦一二三四五六七八九十兩幾多少上下左右前內外' +
+    '來去走看聽吃喝睡坐站跌倒痛藥量協幫陪負責血壓糖尿失智中風骨折開刀手術檢查治療復健評估訪視照顧服務').split(''));
+  // 常見與姓氏同字開頭的詞（不是人名）
+  const NOT_NAMES = new Set(['高血壓', '高血糖', '高血脂', '高齡', '林口', '周末', '周邊', '李子', '方便', '方面', '方式', '方法', '方向',
+    '王道', '許多', '何時', '何謂', '於是', '張力', '張開', '黃疸', '白天', '白內障', '江湖', '石頭', '古早', '田地', '金錢', '康復',
+    '程度', '高度', '溫度', '陳述', '連續', '連結', '連絡', '包括', '包含', '包尿布', '曾經', '周圍', '黃色', '白色', '藍色', '朱紅',
+    '方案', '安全', '馬上', '馬桶', '石膏', '段落', '雷射', '童年', '史料', '簡單', '簡易', '莊園', '秦朝', '孫子', '孫女', '高中',
+    '高雄', '林園', '宜蘭', '花蓮', '金門', '彭湖', '高樹', '萬丹', '萬華', '石門', '江南', '龍潭', '湯匙', '杜絕', '施打', '施行',
+    '何者', '何處', '利用', '利尿', '利尿劑', '費用', '殷切', '任何', '任意', '應該', '應用', '賀爾蒙', '易怒', '易累', '魯莽',
+    '凌晨', '龍骨', '段數', '房間', '房子', '花錢', '花費', '莫名', '喬裝', '牛奶', '包裝', '宮頸', '谷底', '冷氣', '冷水', '艾草',
+    '蒲公英', '符合', '葛根', '孔洞', '岳父', '岳母', '尹', '封閉', '麥片', '毛巾', '毛病', '章節', '顧客', '顧問', '雷同', '萬一',
+    '俞', '甘草', '秦', '熊貓', '倪', '游泳', '游戲', '彭湃', '錢包', '夏天', '夏季', '柳丁', '陸續', '童話', '金額', '韓國',
+    '嚴重', '嚴格', '黎明', '龔', '汪洋', '尤其', '尤其是', '白開水', '姜', '康健', '湯藥', '程序', '馮', '歐洲', '姚',
+    '紀錄', '紀念', '紀律', '唐突', '溫水', '溫和', '溫暖', '董事', '馬路', '阮', '卓越', '丁香', '薛', '曹', '侯', '傅',
+    '杜', '鄧', '宋', '范', '戴', '孫', '魏', '翁', '柯', '顏', '趙', '梁', '盧', '余', '沈', '施', '胡', '詹', '彭', '游',
+    '鍾', '朱', '簡', '潘', '高', '羅', '蕭', '何', '江', '呂', '莊', '蘇', '葉', '周', '徐', '賴', '廖', '邱', '曾', '洪',
+    '郭', '謝', '鄭', '許', '楊', '蔡', '劉', '吳', '王', '李', '張', '黃', '林', '陳', '石化', '金屬', '方塊', '高爾夫',
+    '高低', '高興', '黃昏', '黃金', '林業', '王國', '許可', '吳郭魚', '葉子', '葉酸', '周遭', '洪水', '邱', '游走', '余額',
+    '施工', '施力', '連帶', '連接', '連動', '連忙', '江水', '朱古力', '彭', '溫熱', '湯圓', '程式', '白米', '白飯', '史',
+    '雷', '甘', '毛', '易', '冉', '喬', '牛', '房', '花', '莫', '裴', '龐', '祝', '應', '包', '宮', '谷', '冷', '艾', '蒲',
+    '覃', '凌', '魯', '段', '龍', '符', '賀', '辜', '鄔', '麥', '封', '郝', '岳', '孔', '殷', '費', '利', '褚', '邢', '闕',
+    '葛', '饒', '粘', '萬', '官', '章', '顧', '秦', '任', '熊', '駱', '譚', '于', '倪', '伍', '錢', '邵', '凃', '柳', '夏',
+    '陸', '童', '金', '袁', '韓', '嚴', '龔', '涂', '黎', '鐘', '巫', '尤', '鄒', '汪', '白', '姜', '康', '田', '湯', '程',
+    '歐', '馮', '連', '紀', '古', '石', '蔣', '藍', '唐', '溫', '董', '馬', '卓', '丁']);
+
+  const MED_LATIN_ALLOW = new Set(('Email Gmail Barthel Lawton Parkinson Alzheimer Alzheimers Foley Brunnstrom Berg Tinetti Glasgow Mini Line Facebook Google Excel Word ' +
+    'Apple Android Windows Hello Ok Okay January February March April May June July August September October November December ' +
+    'Monday Tuesday Wednesday Thursday Friday Saturday Sunday The This That And For With From Note Total Score Yes No Not None Other Others ' +
+    'Timed Up Go Test Scale Index Activities Daily Living Instrumental Functional Independence Measure Assessment Report Case Care Plan ' +
+    'Covid Stroke Diabetes Dementia Normal Left Right Mild Moderate Severe Good Fair Poor Trace Zero Hospital Clinic Center Home Day ' +
+    'Pain Fall Walker Cane Wheelchair Bed Bath Toilet Mr Mrs Ms Dr Oxygen Insulin Aspirin Panadol Tylenol Lasix Plavix Morphine Name Date ' +
+    'Page Of In On At To By As Is Are Was Be Do Did Has Have Had Can Will Shall Should Would Could May Might Must Gait Balance Strength Range ' +
+    'Motion Upper Lower Extremity Muscle Power Sensation Cognition Memory Attention Vision Hearing Speech Swallowing Feeding Dressing ' +
+    'Grooming Transfer Ambulation Stairs Bowel Bladder Mobility Sitting Standing Supine Prone Side Lying Kg Cm Mmhg Bpm').split(/\s+/));
+
+  const CITIES = ['臺北市', '台北市', '新北市', '桃園市', '臺中市', '台中市', '臺南市', '台南市', '高雄市', '基隆市', '新竹市', '嘉義市',
+    '新竹縣', '苗栗縣', '彰化縣', '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '台東縣', '澎湖縣', '金門縣',
+    '連江縣', '桃園縣', '臺北縣', '台北縣', '臺中縣', '台中縣', '臺南縣', '台南縣', '高雄縣'];
+
+  const ORG_SUFFIX = ['醫學中心', '醫院', '診所', '衛生所', '健康服務中心', '日間照顧中心', '日照中心', '長期照顧管理中心', '照顧管理中心',
+    '照管中心', '長照中心', '居家護理所', '護理之家', '養護中心', '安養中心', '養護所', '養護之家', '綜合長照機構', '長照機構', '居家服務中心',
+    '居服中心', '基金會', '協會', '社區關懷據點', '關懷據點', '巷弄長照站', '文健站', '復健中心', '物理治療所', '職能治療所', '藥局',
+    '分院', '教會', '里辦公處', '公所', '小規模多機能', '團體家屋', '家庭托顧', '輔具中心', '輔具資源中心'];
+  const ORG_BOUNDARY = ['轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
+    '就醫', '就診', '回診', '出院', '住院', '至', '到', '於', '在', '去', '往', '從', '由', '與', '和', '及', '跟', '的', '是', '為', '被',
+    '經', '今日', '昨日', '今天', '昨天', '明天', '個案', '案主', '家屬', '目前', '曾在', '曾於', '曾', '並', '且', '、', '／', '/'];
+  const ORG_GENERIC = new Set(['地區', '區域', '社區', '附近', '鄰近', '大型', '一般', '公立', '私立', '教學', '當地', '其他', '某', '該',
+    '本', '這家', '那家', '這間', '那間', '住家', '住家附近', '各', '大', '小', '區域教學', '地區教學', '綜合', '專科', '這個', '那個',
+    '任何', '每間', '每家', '多家', '兩家', '一家', '哪家', '哪間', '他院', '其', '外院', '本院', '本所', '本中心', '我們', '大醫院',
+    '小診所', '各大', '附設', '鄰近的', '前一家', '上一家', '同一家']);
+
+  const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
+  const COMMON_WORDS = new Set('希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
+  const CJK = '\\u4e00-\\u9fff\\u3400-\\u4dbf';
+  const NUMC = '0-9０-９一二三四五六七八九十百零〇';
+  const isCJK = ch => !!ch && /[一-鿿㐀-䶿]/.test(ch);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const PRIORITY = { custom: 100, email: 90, idno: 88, phone: 85, number: 80, birth: 75, date: 70, address: 65, name: 60, title: 55, org: 50, latin: 40, suggest: 30 };
+
+  const CAT_INFO = {
+    name: { label: '人名', color: 'name' },
+    idno: { label: '身分證／居留證', color: 'id' },
+    phone: { label: '電話', color: 'phone' },
+    email: { label: 'Email／帳號', color: 'phone' },
+    number: { label: '病歷號／案號／卡號', color: 'id' },
+    birth: { label: '出生日期', color: 'date' },
+    date: { label: '日期', color: 'date' },
+    address: { label: '地址', color: 'addr' },
+    org: { label: '機構名稱', color: 'org' },
+    custom: { label: '自訂遮蔽詞', color: 'custom' }
+  };
+
+  // ───────── 日期工具 ─────────
+  function mkDate(y, m, d) {
+    y = +y; m = +m; d = +d;
+    if (y < 200) y += 1911;
+    if (y < 1890 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCMonth() !== m - 1) return null;
+    return dt;
+  }
+  const DAY = 86400000;
+  function ageBand(birth, ref, band) {
+    let age = ref.getUTCFullYear() - birth.getUTCFullYear();
+    if (ref.getUTCMonth() < birth.getUTCMonth() || (ref.getUTCMonth() === birth.getUTCMonth() && ref.getUTCDate() < birth.getUTCDate())) age--;
+    if (age < 0) return '【出生日期】';
+    if (age >= 90) return '【90歲以上】';
+    const lo = Math.floor(age / band) * band;
+    return `【${lo}–${lo + band - 1}歲】`;
+  }
+  const toHalf = s => s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+
+  // ───────── 主流程 ─────────
+  function analyze(segments, opt) {
+    opt = Object.assign({
+      names: [],          // [{name, role}]
+      custom: [],         // [{word, rep}]
+      allow: [],          // 不遮蔽詞
+      ageBand: 5,
+      dateMode: 'relative', // relative | yearmonth | keep
+      refDate: new Date(),
+      addrLevel: 'district', // district | city | none
+      forced: []          // [{seg, start, end, cat, rep}]  (Excel 欄位角色)
+    }, opt || {});
+    const allow = new Set(opt.allow.map(s => s.trim()).filter(Boolean));
+    const refDate = new Date(Date.UTC(opt.refDate.getFullYear(), opt.refDate.getMonth(), opt.refDate.getDate()));
+
+    const cands = segments.map(() => []);   // 每段候選
+    const persons = new Map();               // 全名 → {role, first}
+    const titleKeys = [];
+    const add = (si, s, e, o) => { if (e > s) cands[si].push(Object.assign({ s, e }, o)); };
+
+    const notePerson = (name, role, si, pos) => {
+      if (!name || NOT_NAMES.has(name) || allow.has(name)) return false;
+      const p = persons.get(name);
+      const order = si * 1e7 + pos;
+      if (!p) persons.set(name, { role: role || null, first: order });
+      else { if (!p.role && role) p.role = role; if (order < p.first) p.first = order; }
+      return true;
+    };
+
+    // 名單
+    for (const n of opt.names) if (n.name && n.name.length >= 2) notePerson(n.name.trim(), n.role || null, 1e6, 0);
+
+    const surnameAt = (t, i) => {
+      for (const c of SURNAME_COMPOUND) if (t.startsWith(c, i)) return c.length;
+      return SURNAME_SET.has(t[i]) ? 1 : 0;
+    };
+    const titleAt = (t, i, list) => { for (const ti of (list || TITLES)) if (t.startsWith(ti, i)) return ti; return null; };
+    const roleBefore = (t, pos) => {
+      let j = pos;
+      while (j > 0 && /[\s:：,，(（「『為是]/.test(t[j - 1]) && pos - j < 3) j--;
+      for (const [w, role] of LABEL_LIST) if (j >= w.length && t.substr(j - w.length, w.length) === w) return { role, label: w, at: j - w.length };
+      return null;
+    };
+    // 從 i 起抓中文姓名（姓＋1–2 字）
+    const takeName = (t, i) => {
+      const sl = surnameAt(t, i);
+      if (!sl) return null;
+      if (titleAt(t, i + sl)) return null; // 王伯伯 → 交給稱謂規則
+      const c1 = t[i + sl];
+      if (!isCJK(c1) || NAME_STOP.has(c1)) return null;
+      const c2 = t[i + sl + 1];
+      let len = sl + 1;
+      if (isCJK(c2) && !NAME_STOP.has(c2) && !titleAt(t, i + sl + 1)) len = sl + 2;
+      const name = t.substr(i, len);
+      if (NOT_NAMES.has(name)) return null;
+      return name;
+    };
+
+    // Pass 1：規則比對
+    segments.forEach((t, si) => {
+      let m;
+      // 自訂遮蔽詞
+      for (const c of opt.custom) {
+        if (!c.word) continue;
+        const re = new RegExp(esc(c.word), 'g');
+        while ((m = re.exec(t))) add(si, m.index, m.index + c.word.length, { cat: 'custom', key: c.word, rep: c.rep || '【已遮蔽】', pri: PRIORITY.custom });
+      }
+      // Email
+      const reMail = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+      while ((m = reMail.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'email', rep: '【Email】', pri: PRIORITY.email });
+      // LINE / FB 帳號
+      const reAcct = /(LINE\s*ID|Line\s*ID|LINE|Line|line|臉書|FB|IG)\s*[:：]\s*([A-Za-z0-9._@-]{3,})/g;
+      while ((m = reAcct.exec(t))) { const s = m.index + m[0].length - m[2].length; add(si, s, s + m[2].length, { cat: 'email', rep: '【帳號】', pri: PRIORITY.email }); }
+      // 身分證／居留證
+      const reId = /(?<![A-Za-z0-9])[A-Za-z][1289ABCDabcd]\d{8}(?![0-9])/g;
+      while ((m = reId.exec(t))) add(si, m.index, m.index + 10, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno });
+      // 手機
+      const reMob = /(?<![0-9])(?:\+?886[-\s]?|0)9\d{2}[-\s]?\d{3}[-\s]?\d{3}(?![0-9])/g;
+      while ((m = reMob.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone });
+      // 市話
+      const reTel = /(?<![0-9])(?:\(0[2-8]\d{0,2}\)|（0[2-8]\d{0,2}）|0[2-8]\d{0,2})[-\s]?\d{3,4}[-\s]?\d{4}(?:\s*(?:#|分機|轉)\s*\d{1,5})?(?![0-9])/g;
+      while ((m = reTel.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone });
+      // 標籤後的電話（沒有區碼）
+      const reTelL = /(電話|市話|手機|聯絡電話|連絡電話|行動電話|TEL|Tel|tel|Phone|phone)\s*[:：]?\s*([0-9()（）#\-\s]{7,20}[0-9])/g;
+      while ((m = reTelL.exec(t))) { const s = m.index + m[0].length - m[2].length; add(si, s, s + m[2].length, { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone - 1 }); }
+      // 各式編號
+      const reNo = /(病歷號碼|病歷號|病歷|長照案號|個案編號|個案號|案號|身障手冊|身心障礙證明|手冊編號|證明編號|健保卡號|健保卡|卡號|保險證號|床號|房號|編號|帳號|身分證字號|身分證號|身份證字號|身份證號|統一證號|居留證號|護照號碼|ID|No\.?)\s*[:：#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{2,}(?:\s\d{4}){0,3})/g;
+      while ((m = reNo.exec(t))) { const s = m.index + m[0].length - m[2].length; if (/^[A-Za-z][1289ABCDabcd]\d{8}$/.test(m[2])) continue; add(si, s, s + m[2].length, { cat: 'number', rep: '【編號】', pri: PRIORITY.phone + 1 }); }
+      const reHealth = /(?<![0-9])\d{4}\s\d{4}\s\d{4}(?![0-9])/g;
+      while ((m = reHealth.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【編號】', pri: PRIORITY.number });
+      if (opt.ocr) {
+        // 掃描辨識容錯：號碼中夾 1–2 個誤認字（? O l I | 等）
+        const reNoisy = /(?<![0-9A-Za-z])[0-9?OoIl|][0-9?OoIl|\-\s]{6,14}[0-9?OoIl|](?![0-9A-Za-z])/g;
+        while ((m = reNoisy.exec(t))) {
+          const d = (m[0].match(/[0-9]/g) || []).length, bad = (m[0].match(/[?OoIl|]/g) || []).length;
+          if (d >= 6 && bad >= 1 && bad <= 2) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 6 });
+        }
+        const reIdN = /(?<![A-Za-z0-9])[A-Z][12?][0-9?OoIl|]{8}(?![0-9])/g;
+        while ((m = reIdN.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7) add(si, m.index, m.index + 10, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno - 1 });
+      }
+      const reLong = /(?<![0-9A-Za-z])\d{8,}(?![0-9A-Za-z])/g;
+      while ((m = reLong.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【編號】', pri: PRIORITY.number - 5 });
+
+      // 日期
+      const isBirthCtx = (s, e) => /(出生|生日|生於|DOB|dob|出生日期|出生年月日|生\s*日)[^\n]{0,6}$/.test(t.slice(Math.max(0, s - 12), s)) || /^\s*(生|出生)/.test(t.slice(e, e + 3));
+      const reDate = /(?<![0-9])(民國\s*)?([0-9０-９]{2,4})\s*(?:年|\/|-|\.)\s*([0-9０-９]{1,2})\s*(?:月|\/|-|\.)\s*([0-9０-９]{1,2})(?:\s*日|號)?(?![0-9])/g;
+      while ((m = reDate.exec(t))) {
+        const dt = mkDate(toHalf(m[2]), toHalf(m[3]), toHalf(m[4]));
+        if (!dt) continue;
+        const s = m.index, e = m.index + m[0].length;
+        add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: isBirthCtx(s, e) ? PRIORITY.birth : PRIORITY.date });
+      }
+      const reCompact = /(?<![0-9])((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?![0-9])/g;
+      while ((m = reCompact.exec(t))) {
+        const dt = mkDate(m[1], m[2], m[3]); if (!dt) continue;
+        const s = m.index, e = s + 8;
+        add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: (isBirthCtx(s, e) ? PRIORITY.birth : PRIORITY.date) + 15 });
+      }
+      const reRoc7 = /(?<![0-9])(0\d{2}|1[01]\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?![0-9])/g;
+      while ((m = reRoc7.exec(t))) {
+        const s = m.index, e = s + 7;
+        if (!/(出生|生日|日期|DOB)[^\n]{0,4}$/.test(t.slice(Math.max(0, s - 8), s))) continue;
+        const dt = mkDate(m[1], m[2], m[3]); if (!dt) continue;
+        add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: PRIORITY.birth + 15 });
+      }
+      // 出生年（民國34年生）
+      const reBY = /(?<![0-9])(民國\s*)?([0-9０-９]{2,4})\s*年(?:\s*([0-9０-９]{1,2})\s*月)?\s*(?:生|出生)/g;
+      while ((m = reBY.exec(t))) {
+        const dt = mkDate(toHalf(m[2]), m[3] ? toHalf(m[3]) : 7, 1); if (!dt) continue;
+        add(si, m.index, m.index + m[0].length - (/出生$/.test(m[0]) ? 2 : 1), { cat: 'birth', date: dt, pri: PRIORITY.birth - 1 });
+      }
+
+      // 地址
+      const NUM = `[${NUMC}]+`;
+      const TOK = `(?:[${CJK}]{1,3}[村里](?![程民長])|${NUM}鄰|[${CJK}]{1,6}?(?:路|街|大道)|${NUM}段|${NUM}巷|${NUM}弄|${NUM}(?:號|号)|(?:之|-|－)${NUM}|${NUM}(?:樓|F|f)|地下${NUM}樓|B${NUM}|${NUM}室)`;
+      const CITY = `(?:${CITIES.join('|')})`;
+      const DIST = `[${CJK}]{1,3}?[鄉鎮市區]`;
+      const reAddr = new RegExp(`(${CITY})?(${DIST})?((?:${TOK})+)`, 'g');
+      const reCityAt = new RegExp(`^(${CITY})`);
+      const reTokAll = new RegExp(`^(?:${TOK})+$`);
+      while ((m = reAddr.exec(t))) {
+        let s = m.index, full = m[0];
+        if (!/[號号]|[村里]|鄰/.test(full)) continue;               // 要有門牌或村里
+        // 縣市若在中段出現（如「同住在新北市…」）→ 從縣市開始
+        const ci = CITIES.map(c => full.indexOf(c)).filter(k => k > 0 && k <= 8);
+        if (ci.length) { const k = Math.min(...ci); s += k; full = full.slice(k); }
+        const lead = ['居住於', '居住在', '住在', '住於', '位於', '搬到', '搬至', '遷至', '遷入', '戶籍', '地址', '住址', '通訊', '現居',
+          '居住', '前往', '回到', '返回', '參加', '加入', '於', '在', '住', '到', '至', '往', '去', '為', '是', '的'];
+        let changed = true;
+        while (changed) { changed = false; for (const l of lead) if (full.startsWith(l) && full.length > l.length + 3) { full = full.slice(l.length); s += l.length; changed = true; } }
+        let city = '', dist = '', rest = full;
+        const cm = reCityAt.exec(rest);
+        if (cm) { city = cm[1]; rest = rest.slice(city.length); }
+        const dm = (city ? new RegExp(`^([${CJK}]{1,3}?[鄉鎮市區])`) : new RegExp(`^([${CJK}]{0,3}?)([${CJK}]{2}[鄉鎮市區])`)).exec(rest);
+        if (dm) {
+          const junk = city ? '' : dm[1];
+          const d = city ? dm[1] : dm[2];
+          const after = rest.slice(junk.length + d.length);
+          if (after && reTokAll.test(after)) { s += junk.length; dist = d; rest = after; }
+        }
+        if (!city && !dist && !/[號号]/.test(rest)) continue;
+        if (!reTokAll.test(rest)) continue;
+        const keep = opt.addrLevel === 'district' ? city + dist : opt.addrLevel === 'city' ? city : '';
+        const e = s + city.length + dist.length + rest.length;
+        add(si, s, e, { cat: 'address', rep: keep + '【地址】', keepLen: keep.length, pri: PRIORITY.address });
+      }
+
+      // 人名：標籤＋姓名
+      for (let i = 0; i < t.length; i++) {
+        const rb = roleBefore(t, i);
+        if (!rb) continue;
+        if (rb.role === '看護') {
+          const lat = /^[A-Z][A-Za-z.'\-]+(?:\s[A-Z][A-Za-z.'\-]+){0,3}/.exec(t.slice(i));
+          if (lat) { notePerson(lat[0], '看護', si, i); continue; }
+          if (isCJK(t[i]) && !NAME_STOP.has(t[i])) {
+            let j = i; while (j < t.length && j - i < 3 && isCJK(t[j]) && !NAME_STOP.has(t[j]) && !titleAt(t, j)) j++;
+            if (j - i >= 2) notePerson(t.slice(i, j), '看護', si, i);
+          }
+          continue;
+        }
+        if (!surnameAt(t, i) && isCJK(t[i]) && isCJK(t[i + 1]) && !NAME_STOP.has(t[i]) && !NAME_STOP.has(t[i + 1]) &&
+            (!isCJK(t[i + 2]) || NAME_STOP.has(t[i + 2])) && !COMMON_WORDS.has(t.substr(i, 2)) && rb.label !== '姓名') {
+          const nk = t.substr(i, 2);
+          if (!persons.has(nk)) add(si, i, i + 2, { cat: 'name', key: 'nick2:' + nk, rep: '【人名】', pri: PRIORITY.suggest, suggest: true, why: `接在「${rb.label}」後面，可能是暱稱` });
+        }
+        const nm = takeName(t, i);
+        // 曾、連、何…也是常用虛詞：沒有冒號或空白分隔時不採用
+        if (nm && AMBIG_SURNAME.has(nm[0]) && !/[\s:：]/.test(t[i - 1] || '')) continue;
+        if (nm && nm.length >= 2) notePerson(nm, rb.role, si, i);
+      }
+      // 全名＋職稱（王大明醫師、陳美華女士）
+      for (let i = 0; i < t.length; i++) {
+        const sl = surnameAt(t, i); if (!sl) continue;
+        if (i > 0 && isCJK(t[i - 1]) && !roleBefore(t, i) && SURNAME_SET.has(t[i - 1])) continue;
+        for (const gl of [2, 1]) {
+          const g = t.substr(i + sl, gl);
+          if (g.length < gl || [...g].some(c => !isCJK(c) || NAME_STOP.has(c))) continue;
+          const ti = titleAt(t, i + sl + gl, FULLNAME_TITLES);
+          if (ti) {
+            const nm = t.substr(i, sl + gl);
+            if (!NOT_NAMES.has(nm)) notePerson(nm, STAFF_TITLES.has(ti) ? '人員' : (roleBefore(t, i) || {}).role || null, si, i);
+            break;
+          }
+        }
+      }
+      // 外籍看護英文名（低信心，建議）
+      const reLat = /(?<![A-Za-z])[A-Z][a-z]{2,}(?:\s[A-Z][a-z]+){0,3}(?![A-Za-z])/g;
+      while ((m = reLat.exec(t))) {
+        const words = m[0].split(/\s/);
+        if (words.every(w => MED_LATIN_ALLOW.has(w))) continue;
+        if (persons.has(m[0])) continue;
+        add(si, m.index, m.index + m[0].length, { cat: 'name', key: 'latin:' + m[0], rep: '【人名】', pri: PRIORITY.latin, suggest: true, why: '英文名字（可能是外籍看護）' });
+      }
+      // 「某某表示／說」（低信心）
+      const reSay = new RegExp(`([${CJK}]{2,4})(?=表示|說|提到|告知|自述|主訴|回應|反應|抱怨|同意|拒絕|希望|擔心)`, 'g');
+      while ((m = reSay.exec(t))) {
+        for (let k = 0; k < m[1].length - 1; k++) {
+          const nm = takeName(m[1], k);
+          if (nm && k + nm.length === m[1].length && nm.length >= 2) {
+            const s = m.index + k;
+            if (!persons.has(nm)) add(si, s, s + nm.length, { cat: 'name', key: 'say:' + nm, rep: '【人名】', pri: PRIORITY.suggest, suggest: true, why: '出現在「表示／說」前面，可能是人名' });
+            break;
+          }
+        }
+      }
+      // 機構
+      const reOrg = new RegExp(`[^\\s，。、；：:（）()「」『』,.;!?！？0-9…‧·．—–~～\\-]{1,14}?(?:${ORG_SUFFIX.join('|')})`, 'g');
+      while ((m = reOrg.exec(t))) {
+        const suf = ORG_SUFFIX.find(x => m[0].endsWith(x));
+        let pre = m[0].slice(0, m[0].length - suf.length);
+        let s = m.index;
+        let cut = 0;
+        for (const b of ORG_BOUNDARY) { const k = pre.lastIndexOf(b); if (k >= 0 && k + b.length > cut) cut = k + b.length; }
+        pre = pre.slice(cut); s += cut;
+        if (pre.length < 2 || ORG_GENERIC.has(pre) || /[家間個]$/.test(pre)) continue;
+        if (allow.has(pre + suf)) continue;
+        add(si, s, s + pre.length + suf.length, { cat: 'org', key: pre + suf, orgType: /醫院|診所|醫學中心|分院/.test(suf) ? '醫院' : '機構', pri: PRIORITY.org });
+      }
+    });
+
+    // Pass 2：已知人名擴散到全文（含名字縮寫）
+    const personList = [...persons.keys()].sort((a, b) => b.length - a.length);
+    const givenMap = new Map();
+    for (const nm of personList) {
+      if (/^[A-Za-z]/.test(nm)) continue;
+      const sl = SURNAME_COMPOUND.some(c => nm.startsWith(c)) ? 2 : 1;
+      const given = nm.slice(sl);
+      if (given.length === 2 && !givenMap.has(given)) givenMap.set(given, nm);
+    }
+    segments.forEach((t, si) => {
+      for (const nm of personList) {
+        let k = -1;
+        while ((k = t.indexOf(nm, k + 1)) >= 0) {
+          add(si, k, k + nm.length, { cat: 'name', key: nm, person: nm, pri: PRIORITY.name });
+          const pp = persons.get(nm); if (si * 1e7 + k < pp.first) pp.first = si * 1e7 + k;
+        }
+      }
+      for (const [g, nm] of givenMap) {
+        let k = -1;
+        while ((k = t.indexOf(g, k + 1)) >= 0) {
+          if (/[路街巷段里村區鄉鎮市號]/.test(t[k + 2] || '')) continue;
+          add(si, k, k + 2, { cat: 'name', key: nm, person: nm, pri: PRIORITY.name - 1 });
+        }
+      }
+      // 姓＋稱謂（王伯伯、陳醫師）、阿X姨
+      for (let i = 0; i < t.length; i++) {
+        const sl = surnameAt(t, i); if (!sl) continue;
+        const ti = titleAt(t, i + sl); if (!ti) continue;
+        if (i > 0 && SURNAME_SET.has(t[i - 1]) && isCJK(t[i - 1])) {
+          // 前一字也是姓 → 可能是全名的一部分（如「王小明先生」的「明先生」），交給全名規則
+        }
+        const prev = t[i - 1];
+        if (prev && isCJK(prev) && !roleBefore(t, i) && !/[和與跟及、的找問請給叫向對被讓]/.test(prev)) {
+          // 「高血壓阿嬤」等：前面是一般中文就不視為姓
+          if (!(ti.length >= 2)) continue;
+        }
+        const sur = t.substr(i, sl);
+        const key = sur + ti;
+        if (NOT_NAMES.has(key) || allow.has(key)) continue;
+        titleKeys.push(key);
+        add(si, i, i + sl, { cat: 'name', key: 'title:' + key, surname: sur, title: ti, role: (roleBefore(t, i) || {}).role || (STAFF_TITLES.has(ti) ? '人員' : null), pri: PRIORITY.title, firstPos: si * 1e7 + i });
+      }
+      const reNick = /阿([一-鿿])(姨|伯|嬤|嫂|姐|姊|哥|叔|婆|姑|嬸|妹|弟)/g;
+      let m;
+      while ((m = reNick.exec(t))) {
+        if ('公嬤媽婆伯姨叔嬸爸母姐姊哥兄弟妹嫂姑舅祖爺奶伯'.includes(m[1])) continue;
+        add(si, m.index, m.index + 2, { cat: 'name', key: 'nick:' + m[0].slice(0, 2), nick: m[0].slice(0, 2), title: m[2], pri: PRIORITY.title, firstPos: si * 1e7 + m.index });
+      }
+    });
+
+    // 強制（Excel 欄位）
+    for (const f of opt.forced) add(f.seg, f.start, f.end, Object.assign({ pri: 200, forced: true }, f));
+
+    // 去掉不遮蔽詞、解決重疊
+    const spansBySeg = cands.map((list, si) => {
+      const t = segments[si];
+      list = list.filter(c => !allow.has(t.slice(c.s, c.e)));
+      list.sort((a, b) => b.pri - a.pri || (b.e - b.s) - (a.e - a.s) || a.s - b.s);
+      const taken = [];
+      const out = [];
+      for (const c of list) {
+        if (taken.some(([s, e]) => c.s < e && c.e > s)) continue;
+        taken.push([c.s, c.e]); out.push(c);
+      }
+      return out.sort((a, b) => a.s - b.s);
+    });
+
+    // 代號：人員依首次出現排序
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letterOf = i => i < 26 ? LETTERS[i] : LETTERS[Math.floor(i / 26) - 1] + LETTERS[i % 26];
+    const usedPersons = new Set();
+    spansBySeg.forEach(list => list.forEach(c => { if (c.person) usedPersons.add(c.person); }));
+    const plist = [...usedPersons].sort((a, b) => persons.get(a).first - persons.get(b).first);
+    const pcode = new Map();
+    plist.forEach((nm, i) => pcode.set(nm, { letter: letterOf(i), role: persons.get(nm).role || '人物' }));
+    let nextLetter = plist.length;
+    const surnameOwners = new Map();
+    for (const nm of plist) {
+      if (/^[A-Za-z]/.test(nm)) continue;
+      const sl = SURNAME_COMPOUND.some(c => nm.startsWith(c)) ? 2 : 1;
+      const sur = nm.slice(0, sl);
+      if (!surnameOwners.has(sur)) surnameOwners.set(sur, []);
+      surnameOwners.get(sur).push(nm);
+    }
+    // 稱謂實體：同姓且只有一位已知人物 → 用同一字母
+    const titleLetter = new Map();
+    const titleCands = [];
+    spansBySeg.forEach(list => list.forEach(c => { if (c.key && (c.key.startsWith('title:') || c.key.startsWith('nick:'))) titleCands.push(c); }));
+    titleCands.sort((a, b) => a.firstPos - b.firstPos);
+    for (const c of titleCands) {
+      if (titleLetter.has(c.key)) continue;
+      let letter = null;
+      if (c.surname) {
+        const owners = surnameOwners.get(c.surname) || [];
+        if (owners.length === 1) letter = pcode.get(owners[0]).letter;
+      }
+      if (!letter) letter = letterOf(nextLetter++);
+      titleLetter.set(c.key, letter);
+    }
+
+    // 日期：服務日期的第一天
+    let day0 = null;
+    spansBySeg.forEach(list => list.forEach(c => { if (c.cat === 'date' && c.date && (!day0 || c.date < day0)) day0 = c.date; }));
+
+    // 機構代號
+    const orgCode = new Map(); const orgCount = { 醫院: 0, 機構: 0 };
+    spansBySeg.forEach(list => list.forEach(c => {
+      if (c.cat === 'org' && !orgCode.has(c.key)) orgCode.set(c.key, c.orgType + letterOf(orgCount[c.orgType]++));
+    }));
+
+    // 建實體
+    const entities = new Map();
+    const spans = spansBySeg.map((list, si) => list.map(c => {
+      const t = segments[si];
+      const orig = t.slice(c.s, c.e);
+      let id, rep = c.rep, cat = c.cat, conf = c.suggest ? 'suggest' : 'high', extra = {};
+      if (c.forced) { id = 'forced:' + c.cat + ':' + orig; extra.forced = true; }
+      else if (c.person) {
+        extra.fullName = c.person;
+        const pc = pcode.get(c.person);
+        id = 'name:' + c.person; rep = pc.role + pc.letter; extra.role = pc.role; extra.letter = pc.letter;
+      } else if (c.key && (c.key.startsWith('title:') || c.key.startsWith('nick:'))) {
+        id = 'name:' + c.key; rep = titleLetter.get(c.key);
+      } else if (c.cat === 'birth') {
+        id = 'birth:' + orig; rep = ageBand(c.date, refDate, opt.ageBand);
+      } else if (c.cat === 'date') {
+        id = 'date:' + orig;
+        if (opt.dateMode === 'keep') { return null; }
+        rep = opt.dateMode === 'yearmonth' ? `${c.date.getUTCFullYear()}年${c.date.getUTCMonth() + 1}月` : `第${Math.round((c.date - day0) / DAY) + 1}天`;
+      } else if (c.cat === 'org') {
+        id = 'org:' + c.key; rep = orgCode.get(c.key);
+      } else {
+        id = (c.key || c.cat) === c.cat ? c.cat + ':' + orig : c.cat + ':' + c.key;
+      }
+      let en = entities.get(id);
+      if (!en) {
+        en = Object.assign({ id, cat, label: (CAT_INFO[cat] || {}).label || cat, color: (CAT_INFO[cat] || {}).color || 'custom', original: orig, rep, conf, count: 0, why: c.why || '', variants: new Set() }, extra);
+        entities.set(id, en);
+      }
+      en.count++; en.variants.add(orig);
+      return { s: c.s, e: c.e, id, rep, keepLen: c.keepLen || 0 };
+    }).filter(Boolean));
+
+    // 姓名實體的顯示：用全名
+    for (const en of entities.values()) if (en.fullName) en.original = en.fullName;
+
+    return { entities, spans, day0, persons };
+  }
+
+  // 啟用中的替換（含「個案王小明」→「個案A」去重）
+  function resolve(text, spans, isOn) {
+    const out = [];
+    for (const sp of spans) {
+      if (!isOn(sp.id)) continue;
+      let rep = sp.rep;
+      const m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep);
+      if (m && text.slice(Math.max(0, sp.s - m[1].length), sp.s) === m[1]) rep = m[2];
+      out.push({ s: sp.s, e: sp.e, rep, id: sp.id, keepLen: sp.keepLen });
+    }
+    return out;
+  }
+  function render(text, spans, isOn) {
+    let out = '', p = 0;
+    for (const r of resolve(text, spans, isOn)) { out += text.slice(p, r.s) + r.rep; p = r.e; }
+    return out + text.slice(p);
+  }
+  function parseDate(str) {
+    const m = /(?:民國\s*)?([0-9０-９]{2,4})\s*(?:年|\/|-|\.)\s*([0-9０-９]{1,2})\s*(?:月|\/|-|\.)\s*([0-9０-９]{1,2})/.exec(str || '');
+    if (m) return mkDate(toHalf(m[1]), toHalf(m[2]), toHalf(m[3]));
+    const c = /^((?:19|20)\d{2})(\d{2})(\d{2})$/.exec((str || '').trim());
+    return c ? mkDate(c[1], c[2], c[3]) : null;
+  }
+
+  const api = { analyze, render, resolve, parseDate, ageBand, CAT_INFO, DAY };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Deid = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>/* 長照識別化｜個案資料工作台 — 介面與檔案處理（全部在瀏覽器內） */
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const escH = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const S_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const CAT_ORDER = ['name', 'idno', 'phone', 'email', 'number', 'birth', 'date', 'address', 'org', 'custom'];
+
+  // ───────── 程式庫（同網站或內嵌，不連外） ─────────
+  window.__LIBDATA = window.__LIBDATA || {};
+  const LIBS = { jszip: 'lib/jszip.min.js', pdf: 'lib/pdf.min.js', pdfworker: 'lib/pdf-worker.js', cmaps: 'lib/cmaps.js', tess: 'lib/tesseract.min.js', tessworker: 'lib/tess-worker.js', tesscore: 'lib/tess-core.js', tesslang: 'lib/tess-chi_tra.js' };
+  const libP = {};
+  function loadLib(name) {
+    if (libP[name]) return libP[name];
+    return (libP[name] = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      const inline = document.getElementById('lib-' + name);
+      if (inline) { s.textContent = inline.textContent; document.head.appendChild(s); inline.remove(); res(); return; }
+      s.src = LIBS[name]; s.onload = () => res(); s.onerror = () => { libP[name] = null; rej(new Error('無法載入元件 ' + name + '（若是直接打開檔案，請改用「離線版」單一檔案）')); };
+      document.head.appendChild(s);
+    }));
+  }
+  const b64bytes = b64 => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+  const blobURL = (txt, type) => URL.createObjectURL(new Blob([txt], { type: type || 'text/javascript' }));
+
+  // ───────── 狀態 ─────────
+  const S = { doc: null, res: null, over: new Map(), view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
+
+  // ───────── 小工具 ─────────
+  function toast(msg, ms) {
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+    setTimeout(() => t.remove(), ms || 2600);
+  }
+  function progress(title, frac, note) {
+    const p = $('#prog');
+    if (title === false) { p.classList.add('hidden'); return; }
+    p.classList.remove('hidden'); $('#progT').textContent = title;
+    $('#progB').style.width = Math.round((frac || 0) * 100) + '%'; $('#progN').textContent = note || '';
+  }
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  function download(blob, name) {
+    const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
+  const extOf = n => (n.match(/\.([^.]+)$/) || [, ''])[1].toLowerCase();
+  const baseOf = n => n.replace(/\.[^.]+$/, '');
+
+  // ───────── 設定 ─────────
+  function readSettings() {
+    const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+    const ROLES = ['個案', '家屬', '看護', '人員'];
+    const names = lines('#sNames').map(l => {
+      const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員)$/.exec(l);
+      return m ? { name: m[1].trim(), role: m[2] } : { name: l, role: null };
+    }).filter(n => n.name.length >= 2);
+    const custom = lines('#sCustom').map(l => { const k = l.search(/[=＝]/); return k > 0 ? { word: l.slice(0, k).trim(), rep: l.slice(k + 1).trim() || '【已遮蔽】' } : { word: l, rep: '【已遮蔽】' }; });
+    const ref = $('#sRef').value ? new Date($('#sRef').value + 'T00:00:00') : new Date();
+    return { names, custom, allow: lines('#sAllow'), ageBand: +$('#sAge').value, dateMode: $('#sDate').value, refDate: ref, addrLevel: $('#sAddr').value, ROLES };
+  }
+
+  // ───────── 分析 ─────────
+  function isOn(id) {
+    if (S.over.has(id)) return S.over.get(id);
+    const e = S.res && S.res.entities.get(id);
+    return !!e && e.conf === 'high';
+  }
+  function analyze() {
+    if (!S.doc) return;
+    const opt = readSettings();
+    if (S.doc.extraNames) opt.names = opt.names.concat(S.doc.extraNames());
+    opt.ocr = !!(S.doc.pages && S.doc.pages.some(p => p.ocr));
+    S.opt = opt;
+    S.res = Deid.analyze(S.doc.segments, opt);
+    S.reviewed = false;
+    renderAll();
+  }
+  let anaT = 0;
+  const analyzeSoon = () => { clearTimeout(anaT); anaT = setTimeout(analyze, 350); };
+
+  // ───────── 讀檔 ─────────
+  async function openFile(file) {
+    clearAll(true);
+    const ext = extOf(file.name);
+    try {
+      let doc;
+      if (ext === 'docx') doc = await Docx.load(file);
+      else if (ext === 'xlsx' || ext === 'xlsm') doc = await Xlsx.load(file);
+      else if (ext === 'csv') doc = await Csv.load(file);
+      else if (ext === 'txt') doc = Txt.fromText(await decodeText(await file.arrayBuffer()), file.name);
+      else if (ext === 'pdf') doc = await Pdf.load(file);
+      else if (/^(jpe?g|png|webp|heic|heif|bmp|gif|tiff?)$/.test(ext) || /^image\//.test(file.type)) doc = await Img.load(file);
+      else if (ext === 'doc' || ext === 'xls') throw new Error('舊版 .' + ext + ' 格式請先用 Office「另存新檔」成 .' + ext + 'x 再上傳。');
+      else throw new Error('不支援這種檔案格式：.' + ext);
+      startDoc(doc);
+    } catch (e) {
+      progress(false); console.error(e);
+      alert('讀取失敗：' + (e.message || e));
+    }
+  }
+  function startDoc(doc) {
+    S.doc = doc; S.over = new Map(); S.view = 'orig'; S.sheet = 0;
+    S.mode = doc.modes ? doc.modes[0].v : null;
+    $('#start').classList.add('hidden'); $('#work').classList.remove('hidden');
+    $('#kindChip').textContent = doc.kindLabel;
+    $('#fname').textContent = doc.name;
+    progress(false);
+    analyze();
+    window.scrollTo(0, 0);
+  }
+  async function decodeText(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); }
+    catch (e) { return new TextDecoder('big5').decode(buf); }
+  }
+
+  // ───────── XML 文字節點對應 ─────────
+  // group = { nodes:[Text 元素], seg }；依替換區間改寫各節點內容
+  function applyToNodes(nodes, text, reps) {
+    let off = 0;
+    const bounds = nodes.map(n => { const s = off; off += n.textContent.length; return [s, off]; });
+    nodes.forEach((n, k) => {
+      const [ns, ne] = bounds[k];
+      let out = '', p = ns;
+      for (const r of reps) {
+        if (r.e <= ns || r.s >= ne) { if (r.s === ne && false) out += ''; continue; }
+        const a = Math.max(r.s, ns), b = Math.min(r.e, ne);
+        out += text.slice(p, a);
+        if (r.s >= ns && r.s < ne) out += r.rep;
+        p = b;
+      }
+      out += text.slice(p, ne);
+      if (out !== n.textContent) { n.textContent = out; if (n.localName === 't') n.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); }
+    });
+  }
+  const parseXml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const serXml = d => new XMLSerializer().serializeToString(d);
+  function closestNS(n, ns, local) { for (let p = n.parentNode; p; p = p.parentNode) if (p.namespaceURI === ns && p.localName === local) return p; return null; }
+
+  // 圖片換灰色方塊
+  async function grayImage(path) {
+    const ext = extOf(path);
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d'); g.fillStyle = '#9aa5a8'; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.moveTo(8, 8); g.lineTo(56, 56); g.moveTo(56, 8); g.lineTo(8, 56); g.stroke();
+    const type = /jpe?g/.test(ext) ? 'image/jpeg' : 'image/png';
+    const b = await new Promise(r => c.toBlob(r, type, 0.9));
+    return new Uint8Array(await b.arrayBuffer());
+  }
+  // Office 共通：清除作者等中繼資料
+  async function scrubOffice(zip, isOn, warnings) {
+    const core = zip.file('docProps/core.xml');
+    if (core) {
+      const d = parseXml(await core.async('string'));
+      ['creator', 'lastModifiedBy', 'title', 'subject', 'keywords', 'description', 'category', 'contentStatus', 'identifier'].forEach(tag => {
+        [...d.getElementsByTagName('*')].filter(e => e.localName === tag).forEach(e => { e.textContent = ''; });
+      });
+      zip.file('docProps/core.xml', serXml(d));
+    }
+    const app = zip.file('docProps/app.xml');
+    if (app) {
+      const d = parseXml(await app.async('string'));
+      [...d.getElementsByTagName('*')].filter(e => ['Company', 'Manager', 'HyperlinkBase'].includes(e.localName)).forEach(e => { e.textContent = ''; });
+      zip.file('docProps/app.xml', serXml(d));
+    }
+    const custom = zip.file('docProps/custom.xml');
+    if (custom) {
+      const d = parseXml(await custom.async('string'));
+      [...d.getElementsByTagName('*')].filter(e => e.localName === 'property').forEach(p => { [...p.childNodes].forEach(c => { if (c.nodeType === 1) c.textContent = ''; }); });
+      zip.file('docProps/custom.xml', serXml(d));
+    }
+    // 縮圖（常含第一頁畫面）
+    for (const p of Object.keys(zip.files)) if (/^docProps\/thumbnail\./i.test(p)) zip.file(p, await grayImage(p));
+    if ($('#sImg').value === 'gray') {
+      for (const p of Object.keys(zip.files)) if (/^(word|xl)\/media\//.test(p) && !zip.files[p].dir) zip.file(p, await grayImage(p));
+    }
+  }
+
+  // ═════════ Word ═════════
+  const Docx = {
+    async load(file) {
+      await loadLib('jszip');
+      progress('讀取 Word…', 0.3);
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const parts = Object.keys(zip.files).filter(p => /^word\/(document|header\d*|footer\d*|footnotes|endnotes|comments(Extended)?)\.xml$/.test(p))
+        .sort((a, b) => (a === 'word/document.xml' ? -1 : b === 'word/document.xml' ? 1 : a.localeCompare(b)));
+      const xmls = {}, groups = [], segments = [], paras = [];
+      let imgs = 0, tracked = 0, comments = 0;
+      for (const p of parts) {
+        const d = parseXml(await zip.file(p).async('string'));
+        xmls[p] = d;
+        for (const para of d.getElementsByTagNameNS(W_NS, 'p')) {
+          const nodes = [...para.getElementsByTagNameNS(W_NS, 't'), ...para.getElementsByTagNameNS(W_NS, 'delText')]
+            .filter(n => closestNS(n, W_NS, 'p') === para);
+          // 依文件順序排序
+          nodes.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+          const text = nodes.map(n => n.textContent).join('');
+          if (!text) continue;
+          groups.push({ part: p, nodes, seg: segments.length });
+          paras.push({ part: p, seg: segments.length });
+          segments.push(text);
+        }
+        tracked += d.getElementsByTagNameNS(W_NS, 'ins').length + d.getElementsByTagNameNS(W_NS, 'del').length;
+        if (/comments\.xml$/.test(p)) comments += d.getElementsByTagNameNS(W_NS, 'comment').length;
+      }
+      imgs = Object.keys(zip.files).filter(p => /^word\/media\//.test(p)).length;
+      const warns = [];
+      if (imgs) warns.push({ t: `文件內有 ${imgs} 張圖片（可能是照片、簽名或證件）。預設會換成灰色方塊，可在「設定」更改。` });
+      if (tracked) warns.push({ t: `文件含「追蹤修訂」紀錄 ${tracked} 處，刪除過的文字也會一起處理；審閱者姓名會改成「審閱者」。建議原檔先「接受所有修訂」。` });
+      if (comments) warns.push({ t: `文件含 ${comments} 則註解，內容會一起處理，作者姓名會移除。` });
+      const PART_LABEL = p => /header/.test(p) ? '頁首' : /footer/.test(p) ? '頁尾' : /footnotes/.test(p) ? '註腳' : /endnotes/.test(p) ? '章節附註' : /comments/.test(p) ? '註解' : '';
+      return {
+        kind: 'docx', kindLabel: 'Word', name: file.name, segments, warns,
+        renderPreview(view) {
+          let h = '', last = '';
+          for (const pr of paras) {
+            const lab = PART_LABEL(pr.part);
+            if (lab && pr.part !== last) h += `<div class="part">${lab}</div>`;
+            last = pr.part;
+            h += `<p class="para">${segHTML(pr.seg, view)}</p>`;
+          }
+          return h || '<p class="note">這份文件沒有文字內容。</p>';
+        },
+        outputs: [{ v: 'docx', label: 'Word（保留原排版）' }, { v: 'txt', label: '純文字 .txt' }],
+        async export(fmt) {
+          if (fmt === 'txt') return textExport(this, 'txt');
+          const f = await Docx.load(file);   // 用乾淨的副本改，可重複下載
+          const zip = f._zip;
+          for (const g of f._groups) applyToNodes(g.nodes, segments[g.seg], Deid.resolve(segments[g.seg], S.res.spans[g.seg], isOn));
+          for (const p of f._parts) {
+            const d = f._xmls[p];
+            // 修訂與註解作者
+            for (const el of d.getElementsByTagName('*')) {
+              if (el.hasAttributeNS(W_NS, 'author')) el.setAttributeNS(W_NS, 'w:author', '審閱者');
+              if (el.hasAttributeNS(W_NS, 'initials')) el.setAttributeNS(W_NS, 'w:initials', '');
+            }
+            zip.file(p, serXml(d));
+          }
+          const pp = zip.file('word/people.xml');
+          if (pp) { const d = parseXml(await pp.async('string')); for (const el of d.getElementsByTagName('*')) { if (el.hasAttributeNS(W_NS, 'author')) el.setAttributeNS(W_NS, 'w:author', '審閱者'); [...el.attributes].forEach(a => { if (/userId|providerId/.test(a.localName)) a.value = ''; }); } zip.file('word/people.xml', serXml(d)); }
+          for (const p of Object.keys(zip.files).filter(p => /^word\/_rels\/.*\.rels$/.test(p))) {
+            let s = await zip.file(p).async('string');
+            s = s.replace(/Target="mailto:[^"]*"/g, 'Target="mailto:"').replace(/Target="tel:[^"]*"/g, 'Target="tel:"');
+            zip.file(p, s);
+          }
+          await scrubOffice(zip, isOn);
+          return { blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), ext: 'docx' };
+        },
+        _zip: zip, _parts: parts, _groups: groups, _xmls: xmls
+      };
+    }
+  };
+
+  // ═════════ Excel（直接改 XML，保留格式） ═════════
+  const ROLE_OPTS = [['', '—'], ['name-個案', '姓名（個案）'], ['name-家屬', '姓名（家屬）'], ['name-人員', '姓名（人員）'], ['idno', '身分證號'], ['phone', '電話'],
+    ['number', '編號／病歷號'], ['birth', '出生日期→年齡層'], ['date', '日期→第N天'], ['address', '地址'], ['drop', '整欄清空']];
+  function guessRole(h) {
+    h = (h || '').replace(/\s/g, '');
+    if (!h) return '';
+    if (/(身分證|身份證|統一證號|居留證)/.test(h)) return 'idno';
+    if (/(電話|手機|聯絡方式|TEL|Phone)/i.test(h)) return 'phone';
+    if (/(出生|生日|DOB)/i.test(h)) return 'birth';
+    if (/(地址|住址|戶籍|居住地)/.test(h)) return 'address';
+    if (/(病歷|案號|編號|卡號|證號|手冊)/.test(h)) return 'number';
+    if (/(照顧者|家屬|聯絡人|代理人|監護人)/.test(h) && /(姓名|名字|人)$/.test(h)) return 'name-家屬';
+    if (/(個管|居服員|照服員|督導|評估人員|治療師|護理師|社工|填表|承辦)/.test(h)) return 'name-人員';
+    if (/^(個案)?(姓名|名字|案主|個案|服務對象|長者姓名|個案姓名|案主姓名|住民姓名|學員姓名)$/.test(h)) return 'name-個案';
+    if (/(日期|時間)/.test(h)) return 'date';
+    return '';
+  }
+  const colIdx = ref => { const m = /^([A-Z]+)/.exec(ref); let n = 0; for (const c of m[1]) n = n * 26 + c.charCodeAt(0) - 64; return n - 1; };
+  const colName = i => { let s = ''; i++; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
+  function serialDate(v, d1904) { const n = +v; if (!isFinite(n) || n < 1) return null; const base = d1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 30); return new Date(base + Math.round(n) * 86400000); }
+
+  function gridCommon(doc) {
+    // doc.sheets[k] = {name, rows:[[cell]], header:rowIndex, roles:{col:role}}；cell = {seg?, raw?}
+    doc.extraNames = () => {
+      const out = [];
+      doc.sheets.forEach(sh => Object.entries(sh.roles).forEach(([c, r]) => {
+        if (!r.startsWith('name-')) return;
+        sh.rows.forEach((row, ri) => { if (ri <= sh.header) return; const v = cellText(row[c]).trim(); if (v.length >= 2 && v.length <= 20) out.push({ name: v, role: r.slice(5) }); });
+      }));
+      return out;
+    };
+    function cellText(cell) { if (!cell) return ''; return cell.seg != null ? doc.segments[cell.seg] : (cell.raw || ''); }
+    doc.cellText = cellText;
+    doc.roleRep = (sh, ci, cell) => {
+      const role = sh.roles[ci]; if (!role || role.startsWith('name-')) return null;
+      const v = cellText(cell).trim(); if (!v) return null;
+      if (role === 'drop') return '';
+      if (role === 'idno') return '【身分證號】';
+      if (role === 'phone') return '【電話】';
+      if (role === 'number') return '【編號】';
+      if (role === 'address') {
+        const r = Deid.analyze([v], Object.assign({}, S.opt, { names: [], custom: [] }));
+        const a = (r.spans[0] || []).find(sp => sp.id.startsWith('address'));
+        if (a) return v.slice(0, a.s) + a.rep + v.slice(a.e);
+        return '【地址】';
+      }
+      const dt = (cell.num && /^\d+(\.\d+)?$/.test(v)) ? serialDate(v, doc.d1904) : Deid.parseDate(v);
+      if (role === 'birth') return dt ? Deid.ageBand(dt, new Date(Date.UTC(S.opt.refDate.getFullYear(), S.opt.refDate.getMonth(), S.opt.refDate.getDate())), S.opt.ageBand) : '【出生日期】';
+      if (role === 'date') {
+        if (!dt) return '【日期】';
+        if (S.opt.dateMode === 'keep') return null;
+        if (S.opt.dateMode === 'yearmonth') return `${dt.getUTCFullYear()}年${dt.getUTCMonth() + 1}月`;
+        return `第${Math.round((dt - doc.day0()) / Deid.DAY) + 1}天`;
+      }
+      return null;
+    };
+    doc.day0 = () => {
+      let d = S.res && S.res.day0;
+      doc.sheets.forEach(sh => Object.entries(sh.roles).forEach(([c, r]) => {
+        if (r !== 'date') return;
+        sh.rows.forEach((row, ri) => { if (ri <= sh.header || !row[c]) return; const v = cellText(row[c]).trim(); const dt = row[c].num && /^\d+(\.\d+)?$/.test(v) ? serialDate(v, doc.d1904) : Deid.parseDate(v); if (dt && (!d || dt < d)) d = dt; });
+      }));
+      return d || new Date();
+    };
+    doc.renderPreview = (view) => {
+      const shs = doc.sheets;
+      let h = '';
+      if (shs.length > 1) h += '<div class="sheettabs">' + shs.map((sh, k) => `<button type="button" class="btn small ${k === S.sheet ? 'primary' : ''}" data-sheet="${k}">${escH(sh.name)}</button>`).join('') + '</div>';
+      const sh = shs[S.sheet] || shs[0];
+      if (!sh) return '<p class="note">沒有工作表。</p>';
+      const ncol = Math.min(40, sh.rows.reduce((m, r) => Math.max(m, r.length), 0));
+      const maxR = Math.min(sh.rows.length, 300);
+      h += '<div style="overflow:auto"><table class="tbl"><thead><tr><th class="rn"></th>';
+      for (let c = 0; c < ncol; c++) {
+        h += `<th>${colName(c)}<br><select data-role="${c}" aria-label="${colName(c)} 欄的個資類型">` + ROLE_OPTS.map(([v, l]) => `<option value="${v}" ${sh.roles[c] === v ? 'selected' : ''}>${l}</option>`).join('') + '</select></th>';
+      }
+      h += '</tr></thead><tbody>';
+      for (let r = 0; r < maxR; r++) {
+        const row = sh.rows[r] || [];
+        h += `<tr class="${r === sh.header ? 'hdrrow' : ''}"><th class="rn">${r + 1}</th>`;
+        for (let c = 0; c < ncol; c++) {
+          const cell = row[c];
+          const role = r > sh.header ? sh.roles[c] : '';
+          let inner = '';
+          if (cell) {
+            const rr = role ? doc.roleRep(sh, c, cell) : null;
+            if (rr != null) inner = view === 'after' ? `<span class="rp k-custom">${escH(rr) || '（清空）'}</span>` : `<mark class="m k-custom on">${escH(cellText(cell))}</mark>`;
+            else inner = cell.seg != null ? segHTML(cell.seg, view) : escH(cell.raw || '');
+          }
+          h += `<td class="${role ? 'role' : ''}">${inner}</td>`;
+        }
+        h += '</tr>';
+      }
+      h += '</tbody></table></div>';
+      if (sh.rows.length > maxR) h += `<p class="note">僅預覽前 ${maxR} 列（共 ${sh.rows.length} 列），下載的檔案會處理全部。</p>`;
+      h = `<p class="note" style="margin-top:0">第 ${sh.header + 1} 列視為標題列。在欄位上方選擇「個資類型」，整欄會一起處理；姓名欄的名字也會在全檔其他地方被替換。</p>` + h;
+      return h;
+    };
+    doc.sheets.forEach(sh => {
+      // 標題列：前 10 列中第一個有 2 格以上文字的列
+      sh.header = 0;
+      for (let r = 0; r < Math.min(10, sh.rows.length); r++) { const n = (sh.rows[r] || []).filter(c => c && cellText(c).trim()).length; if (n >= 2) { sh.header = r; break; } }
+      sh.roles = {};
+      (sh.rows[sh.header] || []).forEach((c, ci) => { const g = guessRole(cellText(c)); if (g) sh.roles[ci] = g; });
+    });
+  }
+
+  const Xlsx = {
+    async load(file) {
+      await loadLib('jszip');
+      progress('讀取 Excel…', 0.3);
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const segments = [], groups = [];
+      const ssPath = 'xl/sharedStrings.xml';
+      let ssDoc = null; const ssSeg = [];
+      if (zip.file(ssPath)) {
+        ssDoc = parseXml(await zip.file(ssPath).async('string'));
+        for (const si of ssDoc.getElementsByTagNameNS(S_NS, 'si')) {
+          const nodes = [...si.getElementsByTagNameNS(S_NS, 't')].filter(t => !closestNS(t, S_NS, 'rPh'));
+          const text = nodes.map(n => n.textContent).join('');
+          ssSeg.push(segments.length); groups.push({ nodes, seg: segments.length }); segments.push(text);
+        }
+      }
+      const wb = parseXml(await zip.file('xl/workbook.xml').async('string'));
+      const d1904 = [...wb.getElementsByTagNameNS(S_NS, 'workbookPr')].some(e => /^(1|true)$/.test(e.getAttribute('date1904') || ''));
+      const rels = parseXml(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+      const relMap = {}; for (const r of rels.getElementsByTagName('Relationship')) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+      const sheets = [];
+      for (const sEl of wb.getElementsByTagNameNS(S_NS, 'sheet')) {
+        const rid = sEl.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+        let tgt = relMap[rid]; if (!tgt) continue;
+        const path = tgt.startsWith('/') ? tgt.slice(1) : 'xl/' + tgt.replace(/^\.\//, '');
+        if (!zip.file(path)) continue;
+        const d = parseXml(await zip.file(path).async('string'));
+        const rows = [];
+        for (const c of d.getElementsByTagNameNS(S_NS, 'c')) {
+          const ref = c.getAttribute('r'); if (!ref) continue;
+          const ri = +ref.replace(/^[A-Z]+/, '') - 1, ci = colIdx(ref);
+          const t = c.getAttribute('t');
+          const v = c.getElementsByTagNameNS(S_NS, 'v')[0];
+          let cell = null;
+          if (t === 's' && v) cell = { seg: ssSeg[+v.textContent], el: c };
+          else if (t === 'inlineStr') { const nodes = [...c.getElementsByTagNameNS(S_NS, 't')]; const text = nodes.map(n => n.textContent).join(''); groups.push({ nodes, seg: segments.length }); cell = { seg: segments.length, el: c }; segments.push(text); }
+          else if (t === 'str' && v) { groups.push({ nodes: [v], seg: segments.length }); cell = { seg: segments.length, el: c }; segments.push(v.textContent); }
+          else if (v) cell = { raw: v.textContent, num: !t || t === 'n', el: c };
+          if (!cell) continue;
+          (rows[ri] = rows[ri] || [])[ci] = cell;
+        }
+        for (let i = 0; i < rows.length; i++) rows[i] = rows[i] || [];
+        sheets.push({ name: sEl.getAttribute('name'), path, xml: d, rows });
+      }
+      // 註解
+      const cmtDocs = {};
+      for (const p of Object.keys(zip.files).filter(p => /^xl\/(comments\d*|threadedComments\/threadedComment\d*)\.xml$/.test(p))) {
+        const d = parseXml(await zip.file(p).async('string')); cmtDocs[p] = d;
+        for (const el of d.getElementsByTagName('*')) {
+          if (el.localName === 'comment' || el.localName === 'threadedComment') {
+            const nodes = [...el.getElementsByTagName('*')].filter(n => n.localName === 't' || (n.localName === 'text' && el.localName === 'threadedComment'));
+            const text = nodes.map(n => n.textContent).join('');
+            if (text) { groups.push({ nodes, seg: segments.length }); segments.push(text); }
+          }
+        }
+      }
+      const warns = [];
+      if (Object.keys(zip.files).some(p => /^xl\/pivotCache\//.test(p))) warns.push({ bad: true, t: '這個檔案含「樞紐分析」快取，裡面可能保有原始資料的副本。建議在 Excel 先刪除樞紐分析表，或輸出成 CSV。' });
+      if (Object.keys(zip.files).some(p => /^xl\/externalLinks\//.test(p))) warns.push({ t: '檔案有連結到其他活頁簿，連結的暫存值可能含個資，建議先「中斷連結」。' });
+      const media = Object.keys(zip.files).filter(p => /^xl\/media\//.test(p)).length;
+      if (media) warns.push({ t: `檔案內有 ${media} 張圖片，預設會換成灰色方塊。` });
+      const doc = {
+        kind: 'xlsx', kindLabel: 'Excel', name: file.name, segments, sheets, d1904, warns,
+        outputs: [{ v: 'xlsx', label: 'Excel（保留格式）' }, { v: 'csv', label: 'CSV（目前工作表）' }],
+        async export(fmt) {
+          if (fmt === 'csv') return csvExport(doc, doc.sheets[S.sheet] || doc.sheets[0]);
+          const z = await JSZip.loadAsync(await file.arrayBuffer());
+          const fresh = await Xlsx.load(file);   // 用乾淨的副本改，避免重複套用
+          fresh.sheets.forEach((sh, k) => { sh.roles = doc.sheets[k].roles; sh.header = doc.sheets[k].header; });
+          for (const g of fresh._groups) applyToNodes(g.nodes, segments[g.seg], Deid.resolve(segments[g.seg], S.res.spans[g.seg], isOn));
+          if (fresh._ssDoc) z.file(ssPath, serXml(fresh._ssDoc));
+          for (const sh of fresh.sheets) {
+            sh.rows.forEach((row, ri) => {
+              if (ri <= sh.header) return;
+              row.forEach((cell, ci) => {
+                if (!cell) return;
+                const rep = doc.roleRep(sh, ci, cell);
+                if (rep == null) return;
+                const c = cell.el;
+                [...c.childNodes].forEach(n => c.removeChild(n));
+                c.setAttribute('t', 'inlineStr');
+                const is = c.ownerDocument.createElementNS(S_NS, 'is'); const t = c.ownerDocument.createElementNS(S_NS, 't');
+                t.textContent = rep; is.appendChild(t); c.appendChild(is);
+              });
+            });
+            z.file(sh.path, serXml(sh.xml));
+          }
+          for (const [p, d] of Object.entries(fresh._cmt)) {
+            for (const el of d.getElementsByTagName('*')) if (el.localName === 'author') el.textContent = '審閱者';
+            z.file(p, serXml(d));
+          }
+          for (const p of Object.keys(z.files).filter(p => /^xl\/persons\/person\d*\.xml$/.test(p))) {
+            const d = parseXml(await z.file(p).async('string'));
+            for (const el of d.getElementsByTagName('*')) if (el.localName === 'person') { el.setAttribute('displayName', '審閱者'); if (el.hasAttribute('userId')) el.setAttribute('userId', ''); }
+            z.file(p, serXml(d));
+          }
+          await scrubOffice(z, isOn);
+          return { blob: await z.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), ext: 'xlsx' };
+        },
+        _groups: groups, _ssDoc: ssDoc, _cmt: cmtDocs
+      };
+      gridCommon(doc);
+      // 工作表名稱含個資提醒
+      const sn = Deid.analyze(sheets.map(s => s.name), {});
+      if (sn.spans.some(l => l.length)) warns.push({ t: '有工作表名稱看起來含個資（例如姓名），請在下載後於 Excel 手動改名。' });
+      return doc;
+    }
+  };
+
+  // ═════════ CSV ═════════
+  function parseCSV(text) {
+    const rows = []; let row = [], f = '', q = false;
+    const delim = (text.split('\n')[0].match(/\t/g) || []).length > (text.split('\n')[0].match(/,/g) || []).length ? '\t' : ',';
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === delim) { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+      else f += c;
+    }
+    if (f || row.length) { row.push(f); rows.push(row); }
+    return { rows, delim };
+  }
+  function csvExport(doc, sh) {
+    const q = v => /[",\n\r\t]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    const out = sh.rows.map((row, ri) => row.map((cell, ci) => {
+      if (!cell) return '';
+      if (ri > sh.header) { const rr = doc.roleRep(sh, ci, cell); if (rr != null) return q(rr); }
+      return q(cell.seg != null ? Deid.render(doc.segments[cell.seg], S.res.spans[cell.seg], isOn) : (cell.raw || ''));
+    }).join(',')).join('\r\n');
+    return { blob: new Blob(['﻿' + out], { type: 'text/csv;charset=utf-8' }), ext: 'csv' };
+  }
+  const Csv = {
+    async load(file) {
+      const text = await decodeText(await file.arrayBuffer());
+      const { rows } = parseCSV(text);
+      const segments = [];
+      const grid = rows.map(r => r.map(v => { const k = segments.length; segments.push(v); return { seg: k }; }));
+      const doc = { kind: 'csv', kindLabel: 'CSV', name: file.name, segments, sheets: [{ name: 'CSV', rows: grid }], warns: [],
+        outputs: [{ v: 'csv', label: 'CSV（UTF-8，Excel 可開）' }], async export() { return csvExport(doc, doc.sheets[0]); } };
+      gridCommon(doc);
+      return doc;
+    }
+  };
+
+  // ═════════ 純文字 ═════════
+  function textExport(doc, fmt) {
+    const lines = doc.segments.map((t, i) => Deid.render(t, S.res.spans[i], isOn));
+    let text;
+    if (doc.pageOf) { text = ''; let last = -1; lines.forEach((l, i) => { const p = doc.pageOf[i]; if (p !== last && doc.pageCount > 1) { text += (last >= 0 ? '\n' : '') + `── 第 ${p + 1} 頁 ──\n`; last = p; } text += l + '\n'; }); }
+    else text = lines.join('\n');
+    if (fmt === 'docx') return docxFromText(text).then(blob => ({ blob, ext: 'docx' }));
+    return { blob: new Blob(['﻿' + text.replace(/\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }), ext: 'txt', text };
+  }
+  async function docxFromText(text) {
+    await loadLib('jszip');
+    const z = new JSZip();
+    const x = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    z.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    const paras = text.split('\n').map(l => `<w:p><w:r><w:rPr><w:rFonts w:ascii="Microsoft JhengHei" w:eastAsia="Microsoft JhengHei" w:hAnsi="Microsoft JhengHei"/></w:rPr><w:t xml:space="preserve">${x(l)}</w:t></w:r></w:p>`).join('');
+    z.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${W_NS}"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+    return z.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  }
+  const Txt = {
+    fromText(text, name) {
+      const segments = text.replace(/\r\n?/g, '\n').split('\n');
+      return { kind: 'txt', kindLabel: name ? '文字檔' : '貼上的文字', name: name || '貼上的文字', segments, warns: [],
+        renderPreview(view) { return segments.map((_, i) => `<p class="para">${segHTML(i, view) || '&nbsp;'}</p>`).join(''); },
+        outputs: [{ v: 'txt', label: '純文字 .txt' }, { v: 'docx', label: 'Word .docx' }],
+        async export(fmt) { return textExport(this, fmt); } };
+    }
+  };
+
+  // ═════════ OCR ═════════
+  let tessWorker = null;
+  async function getOCR(onp) {
+    if (tessWorker) { tessWorker._onp = onp; return tessWorker; }
+    onp && onp('載入文字辨識元件（第一次需要幾秒）…', 0.05);
+    await loadLib('tess'); await loadLib('tessworker'); await loadLib('tesscore'); await loadLib('tesslang');
+    onp && onp('啟動中文文字辨識…', 0.15);
+    const wURL = blobURL(__LIBDATA.tessworker), cURL = blobURL(__LIBDATA.tesscore) + '#tesseract-core.js';
+    S.urls.push(wURL);
+    const ref = {};
+    const w = await Tesseract.createWorker([{ code: 'chi_tra', data: b64bytes(__LIBDATA.tesslang) }], 1, {
+      workerPath: wURL, corePath: cURL, workerBlobURL: false, cacheMethod: 'none', gzip: true,
+      logger: m => { if (ref.w && ref.w._onp && m.status === 'recognizing text') ref.w._onp(null, m.progress); }
+    });
+    ref.w = w; w._onp = onp; tessWorker = w;
+    return w;
+  }
+  // 由 OCR 結果建立文字與每字的框
+  function ocrToChars(data) {
+    let text = ''; const boxes = [];
+    const isW = c => /[A-Za-z0-9@._\-]/.test(c);
+    for (const b of data.blocks || []) for (const p of b.paragraphs) for (const l of p.lines) {
+      let prev = '';
+      for (const w of l.words) {
+        const syms = w.symbols && w.symbols.length ? w.symbols : [{ text: w.text, bbox: w.bbox }];
+        for (let k = 0; k < syms.length; k++) {
+          const sy = syms[k]; const ch = sy.text || '';
+          if (k === 0 && prev && isW(prev) && isW(ch[0] || '')) { text += ' '; boxes.push(null); }
+          const bb = sy.bbox; text += ch; for (let u = 0; u < ch.length; u++) boxes.push({ x: bb.x0, y: bb.y0, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0 });
+          prev = ch.slice(-1);
+        }
+      }
+      text += '\n'; boxes.push(null);
+    }
+    return { text, boxes };
+  }
+
+  // ═════════ PDF ═════════
+  class CMapFactory {
+    constructor() {}
+    async fetch({ name }) {
+      await loadLib('cmaps');
+      const b = __LIBDATA.cmaps && __LIBDATA.cmaps[name];
+      if (!b) throw new Error('缺少字型對照表 ' + name);
+      return { cMapData: b64bytes(b), compressionType: 1 };
+    }
+  }
+  let pdfReady = null;
+  async function getPdfjs() {
+    if (pdfReady) return pdfReady;
+    return (pdfReady = (async () => {
+      await loadLib('pdf'); await loadLib('pdfworker');
+      const u = blobURL(__LIBDATA.pdfworker); S.urls.push(u);
+      pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(u);
+      return pdfjsLib;
+    })());
+  }
+  const canvasToBlob = (c, type, q) => new Promise(r => c.toBlob(r, type || 'image/jpeg', q || 0.88));
+
+  // 視覺型文件（PDF／圖片）共通
+  function visualDoc(base) {
+    const doc = Object.assign({ segments: [], pageOf: [], warns: [] }, base);
+    // 每頁一段文字（含換行）
+    doc.pages.forEach((pg, k) => { pg.seg = doc.segments.length; doc.segments.push(pg.text); doc.pageOf.push(k); });
+    doc.pageCount = doc.pages.length;
+    doc.modes = [{ v: 'visual', label: '黑框版' }, { v: 'text', label: '文字版' }];
+    doc.renderPreview = (view) => {
+      if (S.mode === 'text') {
+        return doc.pages.map((pg, k) => `<div class="pagehd">第 ${k + 1} 頁${pg.ocr ? '（文字辨識）' : ''}</div><div class="pagetxt">${segHTML(pg.seg, view) || '<span class="note">（這頁沒有辨識到文字）</span>'}</div>`).join('');
+      }
+      let h = '<p class="note" style="margin-top:0">黑色框＝會被遮蓋；虛線框＝目前不遮蓋（點一下切換）。<b>簽名、照片、印章請直接在頁面上拖曳</b>補一個黑框，點黑框可以刪除。</p>';
+      doc.pages.forEach((pg, k) => {
+        h += `<div class="vwrap"><div class="vpage" data-page="${k}" style="aspect-ratio:${pg.pxW}/${pg.pxH};width:${Math.min(900, pg.pxW)}px"><span class="lbl">第 ${k + 1} 頁${pg.ocr ? '・文字辨識' : ''}</span><img alt="" src="${pg.url}">`;
+        for (const b of pageBoxes(pg, view)) {
+          h += `<div class="box ${b.manual ? 'manual on' : (b.on ? 'on' : 'off')} k-${b.color}" ${b.id ? `data-id="${escH(b.id)}"` : ''} ${b.manual ? `data-manual="${b.mi}"` : ''} title="${escH(b.title)}" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%"></div>`;
+        }
+        h += '</div></div>';
+      });
+      return h;
+    };
+    doc.outputs = null; // 依 mode 決定
+    doc.export = async function (fmt) {
+      if (S.mode === 'text') return textExport(doc, fmt);
+      const outs = [];
+      for (let k = 0; k < doc.pages.length; k++) {
+        const pg = doc.pages[k];
+        progress('產生黑框檔案…', k / doc.pages.length, `第 ${k + 1} / ${doc.pages.length} 頁`);
+        await tick();
+        const img = await loadImg(pg.url);
+        const c = document.createElement('canvas'); c.width = pg.pxW; c.height = pg.pxH;
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+        g.fillStyle = '#000';
+        for (const b of pageBoxes(pg, 'orig')) if (b.manual || b.on) g.fillRect(b.x, b.y, b.w, b.h);
+        outs.push({ c, pg });
+      }
+      progress(false);
+      if (fmt === 'pdf') {
+        const pages = [];
+        for (const { c, pg } of outs) pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', 0.9)).arrayBuffer()), pxW: c.width, pxH: c.height, ptW: pg.ptW, ptH: pg.ptH });
+        return { blob: new Blob([makePdf(pages)], { type: 'application/pdf' }), ext: 'pdf' };
+      }
+      const type = fmt === 'png' ? 'image/png' : 'image/jpeg';
+      if (outs.length === 1) return { blob: await canvasToBlob(outs[0].c, type, 0.92), ext: fmt === 'png' ? 'png' : 'jpg' };
+      // 多頁圖片 → 打包 zip
+      await loadLib('jszip'); const z = new JSZip();
+      for (let k = 0; k < outs.length; k++) z.file(`第${k + 1}頁.${fmt === 'png' ? 'png' : 'jpg'}`, await canvasToBlob(outs[k].c, type, 0.92));
+      return { blob: await z.generateAsync({ type: 'blob' }), ext: 'zip' };
+    };
+    return doc;
+  }
+  const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  // 依標記算出各頁黑框
+  function pageBoxes(pg, view) {
+    const out = [];
+    const spans = (S.res && S.res.spans[pg.seg]) || [];
+    const text = S.doc.segments[pg.seg];
+    for (const r of spans) {
+      const en = S.res.entities.get(r.id); if (!en) continue;
+      const on = isOn(r.id);
+      const from = r.s + (r.keepLen || 0);
+      // 依行合併
+      let cur = null;
+      for (let i = from; i < r.e; i++) {
+        const b = pg.boxes[i]; if (!b) { if (cur) { out.push(cur); cur = null; } continue; }
+        if (cur && Math.abs(b.y - cur.y) < Math.max(b.h, cur.h) * 0.6 && b.x >= cur.x - b.h) { const x2 = Math.max(cur.x + cur.w, b.x + b.w), y2 = Math.max(cur.y + cur.h, b.y + b.h); cur.x = Math.min(cur.x, b.x); cur.y = Math.min(cur.y, b.y); cur.w = x2 - cur.x; cur.h = y2 - cur.y; }
+        else { if (cur) out.push(cur); cur = { x: b.x, y: b.y, w: b.w, h: b.h, id: r.id, on, color: en.color, title: `${en.label}：${text.slice(r.s, r.e)} → ${r.rep}` }; }
+      }
+      if (cur) out.push(cur);
+    }
+    out.forEach(b => { const px = Math.max(2, b.h * (pg.ocr ? 0.4 : 0.18)), py = Math.max(2, b.h * (pg.ocr ? 0.18 : 0.12)); b.x -= px; b.y -= py; b.w += 2 * px; b.h += 2 * py; });
+    (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, title: '手動遮蓋（點一下刪除）', color: 'custom' }));
+    return out;
+  }
+
+  let mctx = null;
+  function charW(ch) {
+    if (!mctx) { mctx = document.createElement('canvas').getContext('2d'); mctx.font = '100px "PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif'; }
+    return mctx.measureText(ch).width || 50;
+  }
+  const Pdf = {
+    async load(file, forceOCR) {
+      progress('讀取 PDF…', 0.02);
+      const lib = await getPdfjs();
+      const data = new Uint8Array(await file.arrayBuffer());
+      const pdf = await lib.getDocument({ data, isEvalSupported: false, CMapReaderFactory: CMapFactory, cMapUrl: 'cmaps/', cMapPacked: true, useSystemFonts: true, disableAutoFetch: true, enableXfa: false }).promise;
+      const pages = []; let ocrN = 0;
+      const n = pdf.numPages;
+      if (n > 60 && !confirm(`這份 PDF 有 ${n} 頁，處理可能需要較久時間、佔用較多記憶體。要繼續嗎？`)) throw new Error('已取消');
+      for (let k = 1; k <= n; k++) {
+        progress('讀取 PDF…', (k - 1) / n, `第 ${k} / ${n} 頁`);
+        const page = await pdf.getPage(k);
+        const vp0 = page.getViewport({ scale: 1 });
+        const scale = Math.min(2.5, 2400 / Math.max(vp0.width, vp0.height) * 1.0 + 0.0001, 2.2);
+        const vp = page.getViewport({ scale });
+        const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        // 不依賴 requestAnimationFrame（分頁在背景時會暫停）
+        const raf = window.requestAnimationFrame; window.requestAnimationFrame = cb => setTimeout(cb, 0);
+        try { await page.render({ canvasContext: g, viewport: vp }).promise; } finally { window.requestAnimationFrame = raf; }
+        let text = '', boxes = [], ocr = false;
+        if (!forceOCR) {
+          const tc = await page.getTextContent();
+          let lastY = null, lastEnd = null;
+          for (const it of tc.items) {
+            if (!('str' in it)) continue;
+            const tx = lib.Util.transform(vp.transform, it.transform);
+            const fh = Math.hypot(tx[2], tx[3]) || 10;
+            const x0 = tx[4], yb = tx[5];
+            const wpx = it.width * scale;
+            if (lastY != null && Math.abs(yb - lastY) > fh * 0.5 && !text.endsWith('\n')) { text += '\n'; boxes.push(null); }
+            else if (lastEnd != null && x0 - lastEnd > fh * 0.25 && /[A-Za-z0-9]$/.test(text) && /^[A-Za-z0-9]/.test(it.str)) { text += ' '; boxes.push(null); }
+            // 依字寬比例分配（全形約為半形兩倍）
+            const ws = [...it.str].map(charW); const tot = ws.reduce((a, b) => a + b, 0) || 1;
+            let acc = 0;
+            [...it.str].forEach((ch, i) => { text += ch; const bx = { x: x0 + wpx * acc / tot, y: yb - fh * 0.88, w: Math.max(1, wpx * ws[i] / tot), h: fh * 1.12 }; for (let u = 0; u < ch.length; u++) boxes.push(bx); acc += ws[i]; });
+            lastY = yb; lastEnd = x0 + wpx;
+            if (it.hasEOL) { text += '\n'; boxes.push(null); lastY = null; lastEnd = null; }
+          }
+        }
+        if (text.replace(/\s/g, '').length < 15) {
+          // 掃描頁 → 文字辨識
+          const w = await getOCR((t, f) => progress(t || `文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間'));
+          w._onp = (t, f) => progress(`文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間');
+          const r = await w.recognize(c, {}, { blocks: true, text: false });
+          ({ text, boxes } = ocrToChars(r.data)); ocr = true; ocrN++;
+        }
+        const blob = await canvasToBlob(c, 'image/jpeg', 0.9);
+        const url = URL.createObjectURL(blob); S.urls.push(url);
+        pages.push({ text, boxes, ocr, url, pxW: c.width, pxH: c.height, ptW: vp0.width, ptH: vp0.height, manual: [] });
+        c.width = c.height = 1; page.cleanup();
+      }
+      await pdf.destroy();
+      const doc = visualDoc({ kind: 'pdf', kindLabel: 'PDF', name: file.name, pages, file });
+      if (ocrN) doc.warns.push({ t: `有 ${ocrN} 頁是掃描影像，已用文字辨識（OCR）讀取。辨識可能有錯字或漏字，請特別仔細檢查黑框版，並手動補遮。` });
+      doc.warns.push({ t: '黑框版會把每一頁轉成圖片，原本的文字層不會保留（避免黑框底下還能複製出原文）。', soft: true });
+      doc.allOCR = !!forceOCR;
+      return doc;
+    }
+  };
+
+  const Img = {
+    async load(file) {
+      progress('讀取圖片…', 0.02);
+      let bmp;
+      try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+      catch (e) { throw new Error('這個瀏覽器無法開啟此圖片格式' + (/heic|heif/i.test(file.name) ? '（HEIC 請用 Safari 開啟，或先轉成 JPG）' : '')); }
+      const max = 3000, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+      const w = await getOCR((t, f) => progress(t || '文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間'));
+      w._onp = (t, f) => progress('文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間');
+      const r = await w.recognize(c, {}, { blocks: true, text: false });
+      const { text, boxes } = ocrToChars(r.data);
+      const blob = await canvasToBlob(c, 'image/png'); const url = URL.createObjectURL(blob); S.urls.push(url);
+      const pages = [{ text, boxes, ocr: true, url, pxW: c.width, pxH: c.height, ptW: c.width * 0.75, ptH: c.height * 0.75, manual: [] }];
+      const doc = visualDoc({ kind: 'image', kindLabel: '圖片', name: file.name, pages, isPng: /png/i.test(file.type) });
+      doc.warns.push({ t: '圖片已用文字辨識（OCR）讀取，可能有錯字或漏字，請仔細檢查，並用拖曳方式補遮簽名、照片、手寫字。' });
+      doc.warns.push({ t: '輸出的圖片會重新繪製，原圖的拍攝地點（GPS）等隱藏資訊會一併移除。', soft: true });
+      return doc;
+    }
+  };
+
+  // ═════════ 簡易 PDF 產生器（每頁一張 JPEG） ═════════
+  function makePdf(pages) {
+    const enc = new TextEncoder();
+    const chunks = []; let len = 0; const offs = [];
+    const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; chunks.push(b); len += b.length; };
+    const N = 2 + pages.length * 3;
+    put('%PDF-1.4\n'); put(new Uint8Array([37, 226, 227, 207, 211, 10]));
+    const obj = (i, body) => { offs[i] = len; put(`${i} 0 obj\n`); if (Array.isArray(body)) body.forEach(put); else put(body); put('\nendobj\n'); };
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, `<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_, k) => `${3 + k * 3} 0 R`).join(' ')}] >>`);
+    pages.forEach((p, k) => {
+      const pi = 3 + k * 3, ii = pi + 1, ci = pi + 2;
+      const w = p.ptW.toFixed(2), h = p.ptH.toFixed(2);
+      obj(pi, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im${k} ${ii} 0 R >> >> /Contents ${ci} 0 R >>`);
+      obj(ii, [`<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`, p.jpeg, '\nendstream']);
+      const cs = `q ${w} 0 0 ${h} 0 0 cm /Im${k} Do Q`;
+      obj(ci, `<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+    });
+    const xref = len;
+    let x = `xref\n0 ${N + 1}\n0000000000 65535 f \n`;
+    for (let i = 1; i <= N; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+    put(x + `trailer\n<< /Size ${N + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    const out = new Uint8Array(len); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
+  }
+
+  // ═════════ 畫面 ═════════
+  function segHTML(si, view) {
+    const text = S.doc.segments[si];
+    const spans = (S.res && S.res.spans[si]) || [];
+    let h = '', p = 0;
+    if (view === 'after') {
+      for (const r of Deid.resolve(text, spans, isOn)) {
+        const en = S.res.entities.get(r.id);
+        h += escH(text.slice(p, r.s)) + `<span class="rp k-${en.color}" data-id="${escH(r.id)}" title="${escH(en.label + '：' + text.slice(r.s, r.e))}">${escH(r.rep)}</span>`;
+        p = r.e;
+      }
+      return h + escH(text.slice(p));
+    }
+    for (const r of spans) {
+      const en = S.res.entities.get(r.id); if (!en) continue;
+      const on = isOn(r.id);
+      h += escH(text.slice(p, r.s)) + `<mark class="m k-${en.color} ${on ? 'on' : 'off'} ${en.conf}" data-id="${escH(r.id)}" title="${escH(en.label + ' → ' + r.rep + (on ? '（點一下取消）' : '（點一下遮蔽）'))}">${escH(text.slice(r.s, r.e))}</mark>`;
+      p = r.e;
+    }
+    return h + escH(text.slice(p));
+  }
+
+  function renderAll() { renderWarns(); renderModes(); renderPreview(); renderList(); renderExport(); }
+  function renderWarns() {
+    $('#warns').innerHTML = (S.doc.warns || []).map(w => `<div class="warn ${w.bad ? 'bad' : ''}">${w.bad ? '⚠️ ' : (w.soft ? 'ℹ️ ' : '⚠️ ')}${escH(w.t)}</div>`).join('') +
+      (S.doc.kind === 'pdf' && !S.doc.allOCR ? '<div class="warn">切到「文字版」看看：如果文字是亂碼、缺字，或黑框位置跑掉，請 <button type="button" class="btn small" id="btnReocr">改用文字辨識（OCR）重讀</button></div>' : '');
+  }
+  function renderModes() {
+    const ms = S.doc.modes;
+    $('#modeSeg').innerHTML = ms ? ms.map(m => `<button type="button" data-m="${m.v}" class="${S.mode === m.v ? 'on' : ''}">${m.label}</button>`).join('') + (S.doc.reocr ? '' : '') : '';
+    $('#modeSeg').classList.toggle('hidden', !ms);
+    $$('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
+  }
+  function renderPreview() {
+    const pv = $('#preview'); const st = pv.scrollTop;
+    pv.innerHTML = S.doc.renderPreview(S.view);
+    pv.scrollTop = st;
+  }
+  function renderList() {
+    const ents = [...S.res.entities.values()];
+    const on = ents.filter(e => isOn(e.id));
+    const sugg = ents.filter(e => e.conf === 'suggest');
+    let h = `<div class="stat"><span><b>${on.length}</b> 項會被替換</span>${sugg.length ? `<span class="chip" style="background:color-mix(in srgb,var(--amber) 25%,transparent)">${sugg.length} 項待確認</span>` : ''}</div>`;
+    if (!ents.length) h += '<p class="note">沒有自動找到個資。請確認是否真的沒有，或在「設定」填入本案人名，也可以直接在左邊選取文字來遮蔽。</p>';
+    const row = e => {
+      const o = isOn(e.id);
+      const vars = [...e.variants].filter(v => v !== e.original);
+      return `<div class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''} aria-label="遮蔽 ${escH(e.original)}"><span class="o" data-go="${escH(e.id)}" title="點一下跳到位置">${escH(e.original)}${vars.length ? ` <span class="n">(${escH(vars.slice(0, 3).join('、'))})</span>` : ''} → <span class="rep">${escH(e.rep || '（清空）')}</span></span><span class="n">×${e.count}</span>` +
+        (e.conf === 'suggest' ? `<span class="why">${escH(e.why)}</span><span class="acts"><button type="button" class="btn small" data-accept="${escH(e.id)}">是人名，加入名單</button><button type="button" class="btn small ghost" data-reject="${escH(e.id)}">不是</button></span>` : '') + '</div>';
+    };
+    if (sugg.length) h += `<div class="grp sugg"><h4>🟡 需要你確認</h4>${sugg.map(row).join('')}</div>`;
+    for (const cat of CAT_ORDER) {
+      const list = ents.filter(e => e.cat === cat && e.conf !== 'suggest');
+      if (!list.length) continue;
+      const info = Deid.CAT_INFO[cat];
+      h += `<div class="grp"><h4><span class="dot k-${info.color}"></span>${info.label}（${list.length}）</h4>${list.map(row).join('')}</div>`;
+    }
+    h += '<p class="note">漏掉的字：在左邊用滑鼠選取文字，就能加入遮蔽。</p>';
+    $('#listPane').innerHTML = h;
+  }
+  function outputsFor() {
+    if (S.doc.kind === 'pdf' || S.doc.kind === 'image') {
+      if (S.mode === 'text') return [{ v: 'txt', label: '純文字 .txt' }, { v: 'docx', label: 'Word .docx' }];
+      return S.doc.kind === 'pdf' ? [{ v: 'pdf', label: 'PDF（黑框，轉為圖片）' }, { v: 'jpg', label: '圖片 JPG' }]
+        : [{ v: S.doc.isPng ? 'png' : 'jpg', label: S.doc.isPng ? '圖片 PNG（黑框）' : '圖片 JPG（黑框）' }, { v: 'pdf', label: 'PDF（黑框）' }];
+    }
+    return S.doc.outputs;
+  }
+  function safeName() {
+    const known = [...S.res.entities.values()].filter(e => e.fullName).map(e => ({ word: e.fullName, rep: e.rep }));
+    const r = Deid.analyze([baseOf(S.doc.name)], Object.assign({}, S.opt, { custom: known.concat(S.opt.custom) }));
+    let b = Deid.render(baseOf(S.doc.name), r.spans[0], () => true);
+    b = b.replace(/[\\/:*?"<>|]/g, '_').trim() || '文件';
+    return b + '_去識別化';
+  }
+  function renderExport() {
+    const outs = outputsFor();
+    const cur = S.outFmt && outs.some(o => o.v === S.outFmt) ? S.outFmt : outs[0].v; S.outFmt = cur;
+    const canCopy = ['txt', 'docx', 'csv'].includes(S.doc.kind) || S.mode === 'text' || S.doc.kind === 'xlsx';
+    $('#expPane').innerHTML = `<h3>③ 輸出</h3>
+      <select id="outFmt" aria-label="輸出格式">${outs.map(o => `<option value="${o.v}" ${o.v === cur ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
+      <label style="font-size:13px;color:var(--muted)">檔名（已自動去除檔名中的個資）<input type="text" id="outName" value="${escH(S.outName || safeName())}"></label>
+      <label class="ck"><input type="checkbox" id="ckRev" ${S.reviewed ? 'checked' : ''}><span>我已逐項檢查標記，也了解自動偵測可能有遺漏。</span></label>
+      <div class="row"><button class="btn primary" id="btnDl" type="button" ${S.reviewed ? '' : 'disabled'}>下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button" ${S.reviewed ? '' : 'disabled'}>複製文字</button>` : ''}</div>`;
+  }
+
+  // ───────── 事件 ─────────
+  function toggleEnt(id, val) {
+    const v = val == null ? !isOn(id) : val;
+    S.over.set(id, v); S.reviewed = false;
+    renderPreview(); renderList(); renderExport();
+  }
+  function addName(name, role) {
+    const ta = $('#sNames'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + name + (role ? ' ' + role : '');
+    analyze();
+  }
+  function addCustom(word) { const ta = $('#sCustom'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + word; analyze(); }
+
+  $('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+  // 整頁也可以拖放
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => { e.preventDefault(); if (e.target.closest && e.target.closest('#drop')) return; const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) openFile(f); });
+
+  $('#btnPaste').addEventListener('click', () => { const t = $('#pasteIn').value; if (!t.trim()) { toast('請先貼上文字'); return; } startDoc(Txt.fromText(t)); $('#pasteIn').value = ''; });
+  $('#btnSample').addEventListener('click', () => {
+    $('#pasteIn').value = '個案姓名：王小明，男，民國34年3月5日出生，身分證字號 A123456789。\n住址：基隆市七堵區明德一路123巷4號5樓，聯絡電話 02-2456-7890。\n主要照顧者為案妻李美華（0912-345-678），長子王大同住在新北市汐止區大同路二段100號。\n113/05/12 個管師陳怡君到宅訪視，王伯伯表示右膝疼痛，想去基隆長庚醫院回診。\n外籍看護 Siti 協助沐浴，照服員小美每週一三五到宅服務。小明今日情緒穩定。\n病歷號：0012345678，健保卡號 0000 1234 5678。\n2024年6月3日 轉介居家復能，建議安裝扶手、練習坐到站。';
+  });
+
+  $('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.v; renderModes(); renderPreview(); });
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; renderAll(); });
+  $$('.tabs button').forEach(b => b.addEventListener('click', () => {
+    $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+    $('#listPane').classList.toggle('hidden', b.dataset.t !== 'list'); $('#setPane').classList.toggle('hidden', b.dataset.t !== 'set');
+  }));
+  ['#sNames', '#sCustom', '#sAllow'].forEach(id => $(id).addEventListener('input', analyzeSoon));
+  ['#sAge', '#sRef', '#sDate', '#sAddr'].forEach(id => $(id).addEventListener('change', analyze));
+
+  $('#preview').addEventListener('click', e => {
+    const sb = e.target.closest('[data-sheet]'); if (sb) { S.sheet = +sb.dataset.sheet; renderPreview(); renderExport(); return; }
+    const mk = e.target.closest('mark.m[data-id], .rp[data-id], .box[data-id]');
+    if (mk && !(window.getSelection() + '').trim()) { toggleEnt(mk.dataset.id); return; }
+    const mb = e.target.closest('.box[data-manual]');
+    if (mb) { const pg = S.doc.pages[+mb.closest('.vpage').dataset.page]; pg.manual.splice(+mb.dataset.manual, 1); S.reviewed = false; renderPreview(); renderExport(); }
+  });
+  $('#warns').addEventListener('click', async e => {
+    if (e.target.id !== 'btnReocr') return;
+    const f = S.doc.file, names = $('#sNames').value;
+    try { const d = await Pdf.load(f, true); clearAll(true); $('#sNames').value = names; startDoc(d); }
+    catch (err) { progress(false); alert('重讀失敗：' + (err.message || err)); }
+  });
+  $('#preview').addEventListener('change', e => {
+    const sel = e.target.closest('select[data-role]'); if (!sel) return;
+    const sh = S.doc.sheets[S.sheet]; const c = +sel.dataset.role;
+    if (sel.value) sh.roles[c] = sel.value; else delete sh.roles[c];
+    analyze();
+  });
+  $('#listPane').addEventListener('change', e => { const r = e.target.closest('.ent'); if (r && e.target.type === 'checkbox') toggleEnt(r.dataset.id, e.target.checked); });
+  $('#listPane').addEventListener('click', e => {
+    const a = e.target.closest('[data-accept]');
+    if (a) { const en = S.res.entities.get(a.dataset.accept); addName(en.original, (/接在「(.+?)」/.exec(en.why) || [])[1] ? labelRole((/接在「(.+?)」/.exec(en.why) || [])[1]) : null); return; }
+    const rj = e.target.closest('[data-reject]');
+    if (rj) { toggleEnt(rj.dataset.reject, false); return; }
+    const g = e.target.closest('[data-go]');
+    if (g) {
+      const el = $(`#preview [data-id="${CSS.escape(g.dataset.go)}"]`);
+      if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400); }
+    }
+  });
+  function labelRole(l) { if (/照服員|居服員|個管|督導|社工|護理|醫|治療師|照專/.test(l)) return '人員'; if (/看護|外看|移工|傭/.test(l)) return '看護'; if (/個案|案主|長者|住民|學員/.test(l)) return '個案'; return '家屬'; }
+
+  // 選取文字 → 加入遮蔽
+  const pop = $('#selpop');
+  document.addEventListener('mouseup', () => setTimeout(showPop, 10));
+  document.addEventListener('touchend', () => setTimeout(showPop, 350));
+  document.addEventListener('keyup', e => { if (e.shiftKey) showPop(); });
+  document.addEventListener('selectionchange', () => { if (!(window.getSelection() + '').trim()) pop.classList.add('hidden'); });
+  function showPop() {
+    const sel = window.getSelection(); const t = (sel + '').trim();
+    if (!t || !S.doc || !sel.rangeCount || !$('#preview').contains(sel.anchorNode) || t.length > 60 || /\n/.test(t)) { pop.classList.add('hidden'); return; }
+    const rc = sel.getRangeAt(0).getBoundingClientRect();
+    pop.innerHTML = `<button type="button" data-a="name-個案">人名・個案</button><button type="button" data-a="name-家屬">人名・家屬</button><button type="button" data-a="name-人員">人名・人員</button><button type="button" data-a="name-看護">看護</button><button type="button" data-a="custom">其他（地名、機構…）</button><button type="button" data-a="allow">這不是個資</button>`;
+    pop.dataset.text = t;
+    pop.classList.remove('hidden');
+    const w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, rc.left + rc.width / 2 - w / 2)) + 'px';
+    pop.style.top = (rc.bottom + 8 + pop.offsetHeight > innerHeight ? rc.top - pop.offsetHeight - 8 : rc.bottom + 8) + 'px';
+  }
+  pop.addEventListener('mousedown', e => e.preventDefault());
+  pop.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const t = pop.dataset.text; pop.classList.add('hidden'); window.getSelection().removeAllRanges();
+    if (b.dataset.a === 'custom') addCustom(t);
+    else if (b.dataset.a === 'allow') { const ta = $('#sAllow'); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + t; analyze(); }
+    else if (t.length < 2) toast('人名至少要 2 個字；單一字請用「其他」');
+    else addName(t, b.dataset.a.slice(5));
+    toast('已加入，全文同樣的字都會一起處理');
+  });
+
+  // 黑框版：拖曳新增
+  let drag = null;
+  $('#preview').addEventListener('pointerdown', e => {
+    const pgEl = e.target.closest('.vpage'); if (!pgEl || e.target.closest('.box') || e.button !== 0) return;
+    const r = pgEl.getBoundingClientRect();
+    drag = { pgEl, r, x0: e.clientX - r.left, y0: e.clientY - r.top, el: document.createElement('div') };
+    drag.el.className = 'box drawing'; pgEl.appendChild(drag.el);
+    pgEl.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  $('#preview').addEventListener('pointermove', e => {
+    if (!drag) return;
+    const x = Math.max(0, Math.min(drag.r.width, e.clientX - drag.r.left)), y = Math.max(0, Math.min(drag.r.height, e.clientY - drag.r.top));
+    Object.assign(drag.el.style, { left: Math.min(x, drag.x0) + 'px', top: Math.min(y, drag.y0) + 'px', width: Math.abs(x - drag.x0) + 'px', height: Math.abs(y - drag.y0) + 'px' });
+    drag.x1 = x; drag.y1 = y;
+  });
+  $('#preview').addEventListener('pointerup', () => {
+    if (!drag) return;
+    const d = drag; drag = null; d.el.remove();
+    if (d.x1 == null || Math.abs(d.x1 - d.x0) < 6 || Math.abs(d.y1 - d.y0) < 6) return;
+    const pg = S.doc.pages[+d.pgEl.dataset.page];
+    const k = pg.pxW / d.r.width;
+    pg.manual.push({ x: Math.min(d.x0, d.x1) * k, y: Math.min(d.y0, d.y1) * k, w: Math.abs(d.x1 - d.x0) * k, h: Math.abs(d.y1 - d.y0) * k });
+    S.reviewed = false; renderPreview(); renderExport();
+  });
+
+  $('#expPane').addEventListener('change', e => {
+    if (e.target.id === 'outFmt') S.outFmt = e.target.value;
+    if (e.target.id === 'ckRev') { S.reviewed = e.target.checked; $('#btnDl').disabled = !S.reviewed; const c = $('#btnCopy'); if (c) c.disabled = !S.reviewed; }
+  });
+  $('#expPane').addEventListener('input', e => { if (e.target.id === 'outName') S.outName = e.target.value; });
+  $('#expPane').addEventListener('click', async e => {
+    if (e.target.id === 'btnDl') {
+      try {
+        e.target.disabled = true;
+        const r = await S.doc.export(S.outFmt);
+        download(r.blob, ($('#outName').value.trim() || '文件_去識別化') + '.' + r.ext);
+        toast('已下載。請存放在機構規定的位置，原始檔不要上傳雲端。', 4200);
+      } catch (err) { console.error(err); alert('輸出失敗：' + (err.message || err)); }
+      finally { progress(false); const b = $('#btnDl'); if (b) b.disabled = !S.reviewed; }
+    }
+    if (e.target.id === 'btnCopy') {
+      let text;
+      if (S.doc.sheets) text = S.doc.sheets[S.sheet].rows.map((row, ri) => row.map((cell, ci) => { if (!cell) return ''; if (ri > S.doc.sheets[S.sheet].header) { const rr = S.doc.roleRep(S.doc.sheets[S.sheet], ci, cell); if (rr != null) return rr; } return cell.seg != null ? Deid.render(S.doc.segments[cell.seg], S.res.spans[cell.seg], isOn) : (cell.raw || ''); }).join('\t')).join('\n');
+      else text = textExport(S.doc, 'txt').text;
+      try { await navigator.clipboard.writeText(text); toast('已複製處理後的文字'); }
+      catch (err) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('已複製處理後的文字'); }
+    }
+  });
+
+  function clearAll(silent) {
+    S.urls.forEach(u => URL.revokeObjectURL(u)); S.urls = [];
+    S.doc = null; S.res = null; S.over = new Map(); S.outName = null; S.outFmt = null; S.reviewed = false;
+    $('#preview').innerHTML = ''; $('#listPane').innerHTML = ''; $('#expPane').innerHTML = ''; $('#warns').innerHTML = '';
+    if (!silent) {
+      ['#sNames', '#sCustom', '#sAllow', '#pasteIn'].forEach(id => { $(id).value = ''; });
+      $('#work').classList.add('hidden'); $('#start').classList.remove('hidden');
+      toast('已清除這個分頁裡的所有資料');
+    }
+  }
+  $('#btnClear').addEventListener('click', () => { if (!S.doc || confirm('要清除目前的檔案、標記與設定嗎？')) clearAll(false); });
+  window.addEventListener('beforeunload', e => { if (S.doc) { e.preventDefault(); e.returnValue = ''; } });
+
+  // 隱私說明＋連線測試
+  $('#btnLock').addEventListener('click', () => { $('#testRes').textContent = ''; $('#dlgLock').showModal(); });
+  if (location.protocol === 'file:') $('#btnOffline').classList.add('hidden');
+  $('#btnTest').addEventListener('click', async () => {
+    const res = $('#testRes'); res.textContent = '測試中…'; res.style.color = '';
+    let blocked = false;
+    const onV = () => { blocked = true; };
+    document.addEventListener('securitypolicyviolation', onV);
+    try { await fetch('https://example.com/?test=1', { mode: 'no-cors', cache: 'no-store' }); res.textContent = '⚠️ 連線沒有被擋下，請改用離線版或通知資訊人員。'; res.style.color = 'var(--danger)'; }
+    catch (err) { res.textContent = '✅ 已被封鎖：這個網頁無法把資料送到任何外部網站。'; res.style.color = 'var(--ok)'; }
+    document.removeEventListener('securitypolicyviolation', onV);
+  });
+  $('#sRef').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+})();
+</script>
+</body>
+</html>

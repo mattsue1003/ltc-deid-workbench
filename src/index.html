@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 安全設定：禁止網頁連到任何外部網址（connect-src 只允許 data:，不經網路），所有程式都在這個檔案或同一網站內 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src data:; media-src 'none'; object-src 'none'; frame-src 'none'; child-src blob:; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>長照識別化工作台</title>
+<meta name="description" content="給長照人員的個案資料去識別化工具：Word、Excel、PDF、掃描檔都在自己的瀏覽器裡處理，資料不上傳。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23028090'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V9z' fill='none' stroke='white' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M12 16l3 3 5-6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>/*CSS*/</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3v5.5c0 4.7-3.2 8.5-7.5 10.5-4.3-2-7.5-5.8-7.5-10.5V5.5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>
+      <h1>長照識別化｜個案資料工作台<small>Word・Excel・PDF・掃描檔　去識別化，在你的電腦裡完成</small></h1>
+    </div>
+    <button class="lock" id="btnLock" type="button" title="點我看怎麼查證">🔒 <span>離線處理中</span><span class="long">｜資料不離開這台電腦</span></button>
+    <button class="btn small danger" id="btnClear" type="button">清除全部</button>
+  </div>
+</header>
+
+<main>
+  <!-- 開始 -->
+  <section id="start">
+    <div class="hero">
+      <label class="drop" id="drop" for="fileIn">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <div class="big">把檔案拖進來，或點這裡選擇</div>
+        <div class="fmt"><span class="chip">Word .docx</span><span class="chip">Excel .xlsx</span><span class="chip">CSV</span><span class="chip">PDF</span><span class="chip">掃描檔／照片 JPG・PNG</span><span class="chip">文字檔 .txt</span></div>
+        <div class="note">檔案只在這個瀏覽器分頁裡讀取，不會上傳；關掉分頁就消失。</div>
+        <input type="file" id="fileIn" class="sr" accept=".docx,.xlsx,.xlsm,.csv,.txt,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.bmp,.gif,.tif,.tiff">
+      </label>
+      <div class="card paste">
+        <h2>或直接貼上文字</h2>
+        <textarea id="pasteIn" placeholder="例如：個案姓名：王小明，民國34年3月5日出生，住基隆市七堵區明德一路123號，主要照顧者為案妻李美華（0912-345-678）……"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="btnPaste" type="button">開始去識別化</button><button class="btn" id="btnSample" type="button">放一段範例試試</button></div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="card info">
+        <h3>會自動找出並替換</h3>
+        <ul>
+          <li>姓名→代號（個案A、家屬B、人員C），同一人全文一致</li>
+          <li>身分證、居留證、電話、Email、LINE ID</li>
+          <li>病歷號、長照案號、健保卡號、身障手冊編號</li>
+          <li>出生日期→年齡層；服務日期→第 N 天</li>
+          <li>地址只保留縣市＋鄉鎮市區</li>
+          <li>醫院、機構名稱，與稱謂（王伯伯→A伯伯）</li>
+        </ul>
+      </div>
+      <div class="card info">
+        <h3>流程</h3>
+        <ul>
+          <li><b>上傳</b>：檔案在本機讀取</li>
+          <li><b>檢查</b>：彩色標記可點擊取消；漏掉的用滑鼠選取補上</li>
+          <li><b>輸出</b>：Word 出 Word、Excel 出 Excel；PDF／圖片可出黑框版或文字版</li>
+        </ul>
+        <p class="note">掃描檔會先做中文文字辨識（OCR），第一次需要幾秒載入。</p>
+      </div>
+      <div class="card info">
+        <h3>使用前須知</h3>
+        <ul>
+          <li><b>自動偵測一定會有遺漏</b>，尤其是沒有稱謂、混在句子裡的人名。請在「設定」填入本案人名清單，並逐項檢查。</li>
+          <li>簽名、照片、印章請在黑框版用滑鼠拖曳補遮。</li>
+          <li>去識別化不等於完全匿名：罕見疾病＋小地方仍可能被認出。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工作區 -->
+  <section id="work" class="hidden">
+    <div class="wbar">
+      <span class="chip" id="kindChip"></span>
+      <span class="fname" id="fname"></span>
+      <span style="flex:1"></span>
+      <div class="seg" id="modeSeg"></div>
+      <div class="seg" id="viewSeg"><button type="button" data-v="orig" class="on">原文＋標記</button><button type="button" data-v="after">處理後預覽</button></div>
+    </div>
+    <div class="work">
+      <div>
+        <div class="warns" id="warns"></div>
+        <div class="preview" id="preview"></div>
+      </div>
+      <aside class="side">
+        <div class="sidebox" style="flex:1">
+          <div class="tabs"><button type="button" data-t="list" class="on">標記清單</button><button type="button" data-t="set">設定</button></div>
+          <div class="sidebody" id="listPane"></div>
+          <div class="sidebody set hidden" id="setPane">
+            <label>本案人名清單 <span class="hint">一行一位，可加角色：王小明 個案／李美華 家屬／陳怡君 人員／Siti 看護。填了之後抓得最準。</span></label>
+            <textarea id="sNames" placeholder="王小明 個案&#10;李美華 家屬"></textarea>
+            <label>其他要遮蔽的詞 <span class="hint">一行一個，可指定替換文字：臺大醫院=某醫學中心</span></label>
+            <textarea id="sCustom" placeholder="七堵長青活動中心&#10;臺大醫院=某醫學中心"></textarea>
+            <label>不要遮蔽的詞 <span class="hint">被誤判的字詞放這裡，一行一個</span></label>
+            <textarea id="sAllow" placeholder="林口"></textarea>
+            <label>出生日期改成</label>
+            <select id="sAge"><option value="5">5 歲一級（80–84 歲）</option><option value="10">10 歲一級（80–89 歲）</option></select>
+            <label>年齡計算基準日 <span class="hint">預設今天；寫歷史紀錄時可改成評估日</span></label>
+            <input type="date" id="sRef">
+            <label>服務／就醫日期改成</label>
+            <select id="sDate"><option value="relative">第 N 天（保留先後順序）</option><option value="yearmonth">只留年月（2024年5月）</option><option value="keep">不處理</option></select>
+            <label>地址保留到</label>
+            <select id="sAddr"><option value="district">縣市＋鄉鎮市區</option><option value="city">只留縣市</option><option value="none">全部移除</option></select>
+            <label>文件中的圖片（Word／Excel）</label>
+            <select id="sImg"><option value="gray">換成灰色方塊（建議）</option><option value="keep">保留原圖（請自行確認圖片沒有個資）</option></select>
+            <p class="note" style="margin-top:14px">設定只存在這個分頁，關掉就清空。</p>
+          </div>
+          <div class="exp" id="expPane"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>長照識別化｜個案資料工作台・純本機處理，不連網、不使用 AI、不儲存資料</span>
+  <span>教材設計｜愛迪樂 鍾孟修 職能治療師</span>
+</footer>
+
+<div class="selpop hidden" id="selpop"></div>
+<div class="prog hidden" id="prog"><div class="card"><b id="progT">處理中…</b><div class="bar"><i id="progB"></i></div><div class="note" id="progN"></div></div></div>
+
+<dialog id="dlgLock">
+  <div class="dlg">
+    <h2>🔒 資料不會離開你的電腦</h2>
+    <p>這個網頁所有的處理（讀檔、文字辨識、偵測、輸出）都在你的瀏覽器裡完成，沒有伺服器、沒有 AI、沒有統計追蹤，也不存任何資料。</p>
+    <p><b>網頁內建「禁止連外」的安全設定</b>：就算程式想送資料出去，瀏覽器也會擋下來。你可以自己查證：</p>
+    <ol>
+      <li><b>連線測試</b>：按下面的按鈕，網頁會「試著」連到外部網站，正常應該顯示「已被封鎖」。</li>
+      <li><b>斷網測試</b>：網頁打開後拔掉網路或開飛航模式，照樣能上傳、處理、下載。</li>
+      <li><b>開發者工具</b>：按 <code>F12</code>（Mac：<code>⌥⌘I</code>）→「網路／Network」分頁，處理檔案時不會出現任何上傳。</li>
+      <li><b>離線版</b>：機構可以下載單一 HTML 檔，請資訊人員檢查後放在內網或單機使用。</li>
+    </ol>
+    <div class="row"><button class="btn primary" id="btnTest" type="button">連線測試</button><a class="btn" id="btnOffline" href="offline.html" download="長照識別化工作台_離線版.html">下載離線版</a></div>
+    <div class="testres" id="testRes"></div>
+    <div class="row" style="margin-top:14px"><button class="btn" type="button" onclick="this.closest('dialog').close()">關閉</button></div>
+  </div>
+</dialog>
+
+<!--LIBS-->
+<script>/*ENGINE*/</script>
+<script>/*APP*/</script>
+</body>
+</html>
