@@ -568,6 +568,21 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
   const PLACE_END = new Set('省市縣區鄉鎮村里路街巷號樓籍科院所部局處系族館站校隊組會社團島山湖河'.split(''));
   const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
   const COMMON_WORDS = new Set('討論 確認 說明 告知 溝通 聯繫 調整 開立 診斷 處方 喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
+  // ───────── 英文／外籍 ─────────
+  const PARTICLE = '(?:bin|binti|bte|bt|van|von|de|da|del|der|den|di|du|la|le|al|el|dos|das|do|ter|ten|mac|mc|y)';
+  const NAME_WORD = "[A-Z](?:[a-z]|['’][A-Z])[a-zA-Z'’\\-]*";   // Smith、O'Brien、McDonald；DOB、SSN 這種全大寫縮寫不算
+  // 英文姓名：1–5 個大寫開頭的字，可夾 bin/binti/van/de 等，或縮寫 J.
+  const LATIN_NAME = `${NAME_WORD}(?:[ \\t](?:${PARTICLE}[ \\t])?(?:${NAME_WORD}|[A-Z]\\.)){0,4}`;   // 字間只允許一個空白（避免吃到後面的欄位）
+  const EN_LABELS = [
+    ['個案', ['Patient Name', 'Client Name', 'Resident Name', 'Full Name', 'Patient', 'Client', 'Resident', 'Participant', 'Service User', 'Name', 'Surname', 'First Name', 'Last Name', 'Given Name', 'Family Name']],
+    ['家屬', ['Emergency Contact', 'Next of Kin', 'Contact Person', 'Primary Caregiver', 'Family Caregiver', 'Guardian', 'Spouse', 'Husband', 'Wife', 'Son', 'Daughter', 'Brother', 'Sister', 'Mother', 'Father', 'Grandson', 'Granddaughter', 'Niece', 'Nephew', 'Relative', 'Contact']],
+    ['看護', ['Foreign Caregiver', 'Domestic Helper', 'Live-in Caregiver', 'Helper', 'Aide', 'Carer', 'Caregiver']],
+    ['人員', ['Assessed by', 'Evaluated by', 'Completed by', 'Prepared by', 'Reviewed by', 'Referred by', 'Reported by', 'Recorded by', 'Signed by', 'Signature', 'Therapist', 'Assessor', 'Evaluator', 'Case Manager', 'Care Manager', 'Social Worker', 'Nurse', 'Physician', 'Doctor', 'Clinician', 'Interviewer', 'Staff']]
+  ];
+  const EN_STOPWORDS = new Set('Date Phone Address Email Male Female Yes No None Unknown Not Applicable Self Same Above Below See Mobile Home Work Tel Fax Age Sex Gender Birth Of The A An And Or To From Room Bed Unit'.split(' '));
+  const KIN_EN = /\b(?:his|her|their|the)?\s*(daughter|son|wife|husband|brother|sister|mother|father|granddaughter|grandson|niece|nephew|caregiver|carer|helper|neighbou?r|friend|nurse|therapist|doctor|physician|social worker)\s+(?=[A-Z])/gi;
+  const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+  const MONTH_RE = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
   const CJK = '\\u4e00-\\u9fff\\u3400-\\u4dbf';
   const NUMC = '0-9０-９一二三四五六七八九十百零〇';
   const isCJK = ch => !!ch && /[一-鿿㐀-䶿]/.test(ch);
@@ -607,6 +622,14 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const lo = Math.floor(age / band) * band;
     return `【${lo}–${lo + band - 1}歲】`;
   }
+  // 中文數字 → 數字（三十四 → 34、一一三 → 113）
+  function cnNum(t) {
+    const d = { 〇: 0, 零: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    if (!/[十百]/.test(t)) return +[...t].map(c => d[c]).join('');
+    let n = 0, cur = 0;
+    for (const c of t) { if (c === '百') { n += (cur || 1) * 100; cur = 0; } else if (c === '十') { n += (cur || 1) * 10; cur = 0; } else cur = d[c]; }
+    return n + cur;
+  }
   const toHalf = s => s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
   // ───────── 主流程 ─────────
@@ -627,6 +650,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const cands = segments.map(() => []);   // 每段候選
     const persons = new Map();               // 全名 → {role, first}
     const titleKeys = [];
+    const cjkAlias = new Map();   // 中文譯名 → 英文全名
     const add = (si, s, e, o) => { if (e > s) cands[si].push(Object.assign({ s, e }, o)); };
 
     const notePerson = (name, role, si, pos) => {
@@ -762,6 +786,13 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
         const dt = mkDate(m[1], m[2], m[3]); if (!dt) continue;
         add(si, s, e, { cat: isBirthCtx(s, e) ? 'birth' : 'date', date: dt, pri: PRIORITY.birth + 15 });
       }
+      // 中文數字日期（民國三十四年三月五日）
+      const reCnDate = /(民國\s*)?([〇零一二三四五六七八九十百]{1,5})\s*年\s*([一二三四五六七八九十]{1,3})\s*月\s*([一二三四五六七八九十]{1,3})\s*[日號]/g;
+      while ((m = reCnDate.exec(t))) {
+        const dt = mkDate(cnNum(m[2]), cnNum(m[3]), cnNum(m[4])); if (!dt) continue;
+        const s0 = m.index, e0 = s0 + m[0].length, isB = isBirthCtx(s0, e0) || (refDate - dt) / DAY > 365.25 * 40;
+        add(si, s0, e0, { cat: isB ? 'birth' : 'date', date: dt, pri: isB ? PRIORITY.birth : PRIORITY.date });
+      }
       // 出生年（民國34年生）
       const reBY = /(?<![0-9])(民國\s*)?([0-9０-９]{2,4})\s*年(?:\s*([0-9０-９]{1,2})\s*月)?\s*(?:生|出生)/g;
       while ((m = reBY.exec(t))) {
@@ -810,9 +841,17 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
       for (let i = 0; i < t.length; i++) {
         const rb = roleBefore(t, i);
         if (!rb) continue;
+        const lat = (i === 0 || !/[A-Za-z]/.test(t[i - 1])) && new RegExp(`^${LATIN_NAME}`).exec(t.slice(i));
+        if (lat && !lat[0].split(/\s+/).every(w => MED_LATIN_ALLOW.has(w) || EN_STOPWORDS.has(w))) {
+          notePerson(lat[0], rb.role, si, i);
+          // 「Nguyen Thi Lan（阮氏蘭）」「Amy 陳」→ 中文名也算同一人
+          const tail = t.slice(i + lat[0].length);
+          // 「Amy 陳（陳美玲）」「Nguyen Thi Lan（阮氏蘭）」：英文名後面的中文姓、括號裡的中文全名
+          const zm = /^\s*(?:([\u4e00-\u9fff])(?=\s*[（(，,\s]|$))?\s*(?:[（(]\s*([\u4e00-\u9fff]{2,4})\s*[）)])?/.exec(tail);
+          for (const zh of [zm && zm[1], zm && zm[2]]) if (zh && SURNAME_SET.has(zh[0]) && !/[籍國人語裔]$|看護|子|女|配偶|太太|先生|媽|爸/.test(zh) && !NOT_NAMES.has(zh)) cjkAlias.set(zh, lat[0]);
+          continue;
+        }
         if (rb.role === '看護') {
-          const lat = /^[A-Z][A-Za-z.'\-]+(?:\s[A-Z][A-Za-z.'\-]+){0,3}/.exec(t.slice(i));
-          if (lat) { notePerson(lat[0], '看護', si, i); continue; }
           if (isCJK(t[i]) && !NAME_STOP.has(t[i])) {
             let j = i; while (j < t.length && j - i < 3 && isCJK(t[j]) && !NAME_STOP.has(t[j]) && !titleAt(t, j)) j++;
             if (j - i >= 2) notePerson(t.slice(i, j), '看護', si, i);
@@ -864,6 +903,57 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
           }
         }
       }
+      // ── 英文表單 ──
+      // 英文欄位＋姓名（Patient Name: John Smith、Emergency Contact: Mary Smith）
+      for (const [role, labs] of EN_LABELS) for (const lab of labs) {
+        const re = new RegExp(`(?<![A-Za-z])${lab.replace(/[a-z]/gi, c => `[${c.toUpperCase()}${c.toLowerCase()}]`).replace(/ /g, '\\s+')}\\s*(?:[:：#\\-]\\s*|\\s+)((?:(?:Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\\.?\\s+)?)(${LATIN_NAME})`, 'g');
+        while ((m = re.exec(t))) {
+          const nm = m[2];
+          if (nm.split(/\s+/).every(w => EN_STOPWORDS.has(w) || MED_LATIN_ALLOW.has(w))) continue;
+          notePerson(nm, /^(Dr|Prof)/.test(m[1]) ? '人員' : role, si, m.index);
+        }
+      }
+      // 稱呼（Mr. Smith、Mrs Margaret O'Brien、Dr. Patel）
+      const reHon = new RegExp(`(?<![A-Za-z])(Mr|Mrs|Ms|Miss|Mx|Dr|Prof)\\.?\\s+(${LATIN_NAME})`, 'g');
+      while ((m = reHon.exec(t))) if (!m[2].split(/\s+/).every(w => MED_LATIN_ALLOW.has(w) || EN_STOPWORDS.has(w))) notePerson(m[2], /^(Dr|Prof)$/.test(m[1]) ? '人員' : null, si, m.index);
+      // 親屬稱謂＋名字（his daughter Susan、caregiver Ani）
+      KIN_EN.lastIndex = 0;
+      while ((m = KIN_EN.exec(t))) {
+        const nm = new RegExp(`^${NAME_WORD}(?:\\s+${NAME_WORD})?`).exec(t.slice(m.index + m[0].length));
+        if (!nm || nm[0].split(/\s+/).every(w => MED_LATIN_ALLOW.has(w) || EN_STOPWORDS.has(w))) continue;
+        const kin = m[1].toLowerCase();
+        notePerson(nm[0], /caregiver|carer|helper/.test(kin) ? '看護' : /nurse|therapist|doctor|physician|social/.test(kin) ? '人員' : /friend|neighbo/.test(kin) ? null : '家屬', si, m.index);
+      }
+      // 電話：國際碼、美式、英式
+      const rePhoneEn = /(?<![\w+])(?:\+\d{1,3}[\s\-]?\(?\d{1,4}\)?(?:[\s\-.]?\d{2,4}){2,4}|\(\d{3}\)\s?\d{3}[\s\-.]\d{4}|\d{3}[\-.]\d{3}[\-.]\d{4}|0\d{4}\s\d{6}|0\d{2,3}\s\d{3,4}\s\d{4})(?![\w])/g;
+      while ((m = rePhoneEn.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone });
+      // 證號：SSN、NHS、病歷號、護照、保險
+      const reSSN = /(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)/g;
+      while ((m = reSSN.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno });
+      const reIdEn = /(MRN|Medical Record(?:\s+(?:Number|No\.?))?|Patient ID|Client ID|Resident ID|NHS\s+(?:Number|No\.?)|Social Security(?:\s+Number)?|SSN|Passport(?:\s+(?:Number|No\.?))?|NIK|KTP|ARC(?:\s+No\.?)?|Resident Permit(?:\s+No\.?)?|Insurance(?:\s+(?:Number|No\.?|ID))?|Policy(?:\s+(?:Number|No\.?))?|Medicare(?:\s+(?:Number|No\.?))?|Medicaid(?:\s+(?:Number|ID))?|Member ID|Case\s+(?:Number|No\.?|ID)|ID\s+(?:Number|No\.?))\s*[:#]?\s*([A-Z0-9][A-Z0-9\- ]{3,22}[A-Z0-9])/gi;
+      while ((m = reIdEn.exec(t))) { const v = m[2].replace(/\s+[A-Za-z].*$/, ''); const st = m.index + m[0].length - m[2].length; add(si, st, st + v.length, { cat: 'number', rep: '【編號】', pri: PRIORITY.phone + 2 }); }
+      // 日期：03/15/1940、21 June 1938、March 3, 2024
+      const birthEn = (st) => /(DOB|D\.O\.B\.?|Date of Birth|Birth\s*date|Birthday|Born(?:\s+on)?)\s*[:：]?\s*$/i.test(t.slice(Math.max(0, st - 20), st));
+      const addDateEn = (st, en, dt) => { if (!dt) return; const isB = birthEn(st) || isBirthCtx(st, en) || (refDate - dt) / DAY > 365.25 * 40; add(si, st, en, { cat: isB ? 'birth' : 'date', date: dt, pri: isB ? PRIORITY.birth : PRIORITY.date }); };
+      const reDmy = /(?<![\d\/])(\d{1,2})[\/.\-](\d{1,2})[\/.\-]((?:19|20)\d{2})(?![\d\/])/g;
+      while ((m = reDmy.exec(t))) { let a1 = +m[1], a2 = +m[2]; const [mo, d] = a1 > 12 ? [a2, a1] : [a1, a2]; addDateEn(m.index, m.index + m[0].length, mkDate(m[3], mo, d)); }
+      const reDMonY = new RegExp(`(?<![\\w])(\\d{1,2})(?:st|nd|rd|th)?\\s+${MONTH_RE}\\.?,?\\s+((?:19|20)\\d{2})(?!\\d)`, 'gi');
+      while ((m = reDMonY.exec(t))) addDateEn(m.index, m.index + m[0].length, mkDate(m[3], MONTHS[m[2].slice(0, 3).toLowerCase()], m[1]));
+      const reMonDY = new RegExp(`(?<![\\w])${MONTH_RE}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+((?:19|20)\\d{2})(?!\\d)`, 'gi');
+      while ((m = reMonDY.exec(t))) addDateEn(m.index, m.index + m[0].length, mkDate(m[3], MONTHS[m[1].slice(0, 3).toLowerCase()], m[2]));
+      // 地址：Address: 一整行；門牌＋街名；郵遞區號；印尼 Jl.
+      const reAddrLab = /(?<![A-Za-z])(?:Home\s+|Residential\s+|Mailing\s+|Current\s+|Permanent\s+)?Address\s*[:：]\s*([^\n]{4,})/gi;
+      while ((m = reAddrLab.exec(t))) { const st = m.index + m[0].length - m[1].length; add(si, st, st + m[1].replace(/\s+$/, '').length, { cat: 'address', rep: '【地址】', pri: PRIORITY.address + 3 }); }
+      const reStreet = /(?<![\w])\d{1,6}[A-Za-z]?\s+(?:[A-Z][a-zA-Z'’\-]*\s+){0,4}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way|Place|Pl|Terrace|Close|Crescent|Highway|Hwy|Parkway|Pkwy|Square|Sq|Gardens|Grove|Row|Walk|Hill)\b\.?(?:,?\s*(?:Apt|Apartment|Unit|Suite|Ste|Flat|Fl|Floor|#)\.?\s*[A-Za-z0-9\-]+)?(?:,\s*[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+){0,2})?(?:,?\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)?(?:,?\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})?/g;
+      while ((m = reStreet.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'address', rep: '【地址】', pri: PRIORITY.address + 2 });
+      const rePost = /(?<![A-Za-z\d])(?:[A-Z]{2}\s+\d{5}(?:-\d{4})?|[A-Z]{1,2}\d[A-Z\d]?\s\d[A-Z]{2})(?![A-Za-z\d])/g;
+      while ((m = rePost.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'address', rep: '【地址】', pri: PRIORITY.address + 1 });
+      const reJl = /(?<![A-Za-z])(?:Jl|Jalan|Gg|Gang)\.?\s+[A-Z][^\n,，]{1,40}?(?:No\.?\s*\d+[A-Za-z]?)(?:\s*,?\s*RT\s*\d+\s*\/?\s*RW\s*\d+)?/g;
+      while ((m = reJl.exec(t))) add(si, m.index, m.index + m[0].length, { cat: 'address', rep: '【地址】', pri: PRIORITY.address + 2 });
+      // 英文機構名稱
+      const reOrgEn = /(?<![A-Za-z])(?:[A-Z][a-zA-Z'’&\-]+\s+){1,5}(?:Hospital|Medical\s+Cent(?:er|re)|Clinic|Nursing\s+Home|Care\s+Home|Health\s+Cent(?:er|re)|Rehabilitation\s+Cent(?:er|re)|Rehab\s+Cent(?:er|re)|Hospice|Day\s+Cent(?:er|re)|Senior\s+Cent(?:er|re)|Home\s+Care|Healthcare|Health\s+System|Foundation|Association)\b/g;
+      while ((m = reOrgEn.exec(t))) { const v = m[0].replace(/^(?:At|The|In|To|From|Of|And|By|On)\s+/, ''); const st = m.index + m[0].length - v.length; add(si, st, st + v.length, { cat: 'org', key: v, orgType: /Hospital|Clinic|Medical/.test(v) ? '醫院' : '機構', pri: PRIORITY.org }); }
+
       // 外籍看護英文名（低信心，建議）
       const reLat = /(?<![A-Za-z])[A-Z][a-z]{2,}(?:\s[A-Z][a-z]+){0,3}(?![A-Za-z])/g;
       while ((m = reLat.exec(t))) {
@@ -871,6 +961,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
         if (words.every(w => MED_LATIN_ALLOW.has(w))) continue;
         if (persons.has(m[0])) continue;
         // 英文單字大多不是人名：只有附近提到看護、外籍、移工、國籍時才問
+        if (/^[\-:：]/.test(t.slice(m.index + m[0].length))) continue;   // Live-in、Note: 不是人名
         const near = t.slice(Math.max(0, m.index - 14), m.index + m[0].length + 14);
         if (!/看護|外看|外籍|移工|印傭|菲傭|越傭|幫傭|印尼|菲律賓|越南|泰國|caregiver|helper/i.test(near)) continue;
         add(si, m.index, m.index + m[0].length, { cat: 'name', key: 'latin:' + m[0], rep: '【人名】', pri: PRIORITY.latin, suggest: true, why: '英文名字（可能是外籍看護）' });
@@ -914,15 +1005,25 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
         persons.delete(p);
       }
     }
-    // 英文名簡稱併入全名（Dewi → Dewi Lestari；王小明 不受影響）
+    // 英文名：拆成單字（John Michael Smith → John、Michael、Smith），只屬於一個人的單字也一起遮
     const alias = new Map();
-    for (const a of [...persons.keys()]) for (const b of persons.keys()) {
-      if (a !== b && /^[A-Za-z]/.test(a) && b.startsWith(a + ' ')) {
+    const isLat = n => /^[A-Za-z]/.test(n);
+    const words = n => n.split(/\s+/).filter(w => /^[A-Z]/.test(w) && w.replace(/[.'’\-]/g, '').length >= 2 && !MED_LATIN_ALLOW.has(w) && !EN_STOPWORDS.has(w));
+    const owners = new Map();
+    for (const n of persons.keys()) if (isLat(n) && words(n).length >= 2) for (const w of words(n)) { if (!owners.has(w)) owners.set(w, new Set()); owners.get(w).add(n); }
+    // 單字名併入全名（Dewi → Dewi Lestari；Smith 若同時屬於兩個人就不併）
+    for (const a of [...persons.keys()]) {
+      if (!isLat(a)) continue;
+      const own = words(a).length === 1 && owners.get(words(a)[0]);
+      const b = own && own.size === 1 ? [...own][0] : [...persons.keys()].find(x => x !== a && x.startsWith(a + ' '));
+      if (b && b !== a && persons.has(b)) {
         const pa = persons.get(a), pb = persons.get(b);
         pb.first = Math.min(pa.first, pb.first); if (!pb.role) pb.role = pa.role;
-        alias.set(a, b); persons.delete(a); break;
+        alias.set(a, b); persons.delete(a);
       }
     }
+    for (const [w, own] of owners) if (own.size === 1 && !persons.has(w) && !alias.has(w)) alias.set(w, [...own][0]);
+    for (const [zh, full] of cjkAlias) if (persons.has(full) || alias.has(full)) alias.set(zh, alias.get(full) || full);
     // Pass 2：已知人名擴散到全文（含名字縮寫）
     const personList = [...persons.keys()].sort((a, b) => b.length - a.length);
     const givenMap = new Map(), maidenMap = new Map();
@@ -935,7 +1036,8 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     }
     segments.forEach((t, si) => {
       for (const [short, full] of alias) {
-        const re = new RegExp(`(?<![A-Za-z])${esc(short)}(?![A-Za-z])`, 'g'); let mm;
+        if (!persons.has(full)) continue;
+        const re = new RegExp(/^[A-Za-z]/.test(short) ? `(?<![A-Za-z])${esc(short)}(?![A-Za-z])` : esc(short), 'g'); let mm;
         while ((mm = re.exec(t))) add(si, mm.index, mm.index + short.length, { cat: 'name', key: full, person: full, pri: PRIORITY.name });
       }
       for (const nm of personList) {
@@ -1084,17 +1186,38 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     // 姓名實體的顯示：用全名
     for (const en of entities.values()) if (en.fullName) en.original = en.fullName;
 
-    return { entities, spans, day0, persons };
+    // 以英文為主的文件：替換文字也用英文（Client A、[Phone]）
+    let cjkN = 0, latN = 0;
+    for (const t of segments) { cjkN += (t.match(/[\u4e00-\u9fff]/g) || []).length; latN += (t.match(/[A-Za-z]/g) || []).length; }
+    const lang = latN >= 60 && cjkN <= latN * 0.1 ? 'en' : 'zh';
+    if (lang === 'en') {
+      for (const en of entities.values()) en.rep = localize(en.rep, 'en');
+      for (const list of spans) for (const sp of list) { sp.rep = localize(sp.rep, 'en'); if (sp.keepLen) sp.keepLen = 0; }
+    }
+
+    return { entities, spans, day0, persons, lang };
   }
 
+  const ROLE_EN = { 個案: 'Client', 家屬: 'Family', 看護: 'Caregiver', 人員: 'Staff', 人物: 'Person' };
+  const TAG_EN = { 電話: 'Phone', 身分證號: 'ID', 編號: 'ID No.', 號碼: 'Number', Email: 'Email', 帳號: 'Account', 人名: 'Name', 已遮蔽: 'Redacted', 出生日期: 'DOB', 日期: 'Date', 地址: 'Address', '90歲以上': 'Age 90+' };
+  function localize(rep, lang) {
+    if (lang !== 'en' || rep == null) return rep;
+    let m;
+    if ((m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep))) return ROLE_EN[m[1]] + ' ' + m[2];
+    if ((m = /^(醫院|機構)([A-Z]{1,2})$/.exec(rep))) return (m[1] === '醫院' ? 'Hospital ' : 'Organization ') + m[2];
+    if ((m = /^第(\d+)天$/.exec(rep))) return 'Day ' + m[1];
+    if ((m = /^(\d{4})年(\d{1,2})月$/.exec(rep))) return m[1] + '-' + m[2].padStart(2, '0');
+    if ((m = /^【(\d+)–(\d+)歲】$/.exec(rep))) return `[Age ${m[1]}-${m[2]}]`;
+    return rep.replace(/.*【地址】$/, '[Address]').replace(/【([^】]+)】/g, (_, k) => '[' + (TAG_EN[k] || k) + ']');
+  }
   // 啟用中的替換（含「個案王小明」→「個案A」去重）
   function resolve(text, spans, isOn) {
     const out = [];
     for (const sp of spans) {
       if (!isOn(sp.id)) continue;
       let rep = sp.rep;
-      const m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep);
-      if (m && text.slice(Math.max(0, sp.s - m[1].length), sp.s) === m[1]) rep = m[2];
+      const m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep) || /^(Client|Family|Caregiver|Staff|Person) ([A-Z]{1,2})$/.exec(rep);
+      if (m && text.slice(Math.max(0, sp.s - m[1].length - 1), sp.s).replace(/\s$/, '').endsWith(m[1])) rep = m[2];
       out.push({ s: sp.s, e: sp.e, rep, id: sp.id, keepLen: sp.keepLen });
     }
     return out;
@@ -1111,7 +1234,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     return c ? mkDate(c[1], c[2], c[3]) : null;
   }
 
-  const api = { analyze, render, resolve, parseDate, ageBand, CAT_INFO, DAY };
+  const api = { analyze, render, resolve, parseDate, ageBand, localize, CAT_INFO, DAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Deid = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
