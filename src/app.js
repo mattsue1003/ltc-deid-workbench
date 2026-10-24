@@ -1,4 +1,4 @@
-/* 長照去識別化｜個案資料工作台 — 介面與檔案處理（全部在瀏覽器內） */
+/* 長照資料去識別化 — 介面與檔案處理（全部在瀏覽器內） */
 (function () {
   'use strict';
   const $ = s => document.querySelector(s);
@@ -361,7 +361,9 @@
           let inner = '';
           if (cell) {
             const rr = role ? doc.roleRep(sh, c, cell) : null;
-            if (rr != null) inner = view === 'after' ? `<span class="rp k-custom">${escH(rr) || '（清空）'}</span>` : `<mark class="m k-custom on">${escH(cellText(cell))}</mark>`;
+            // Excel 的日期存成序號（14290），預覽時顯示成一般日期
+            const shown = (cell.num && /^(birth|date)$/.test(sh.roles[c] || '') && /^\d{4,6}(\.\d+)?$/.test(cellText(cell))) ? (d => d ? `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}` : cellText(cell))(serialDate(cellText(cell), doc.d1904)) : cellText(cell);
+            if (rr != null) inner = view === 'after' ? `<span class="rp k-custom">${escH(rr) || '（清空）'}</span>` : `<mark class="m k-custom on">${escH(shown)}</mark>`;
             else inner = cell.seg != null ? segHTML(cell.seg, view) : escH(cell.raw || '');
           }
           h += `<td class="${role ? 'role' : ''}">${inner}</td>`;
