@@ -188,9 +188,10 @@
       let len = sl + 1;
       if (isCJK(c2) && !NAME_STOP.has(c2) && !titleAt(t, i + sl + 1)) len = sl + 2;
       // 冠夫姓（李張秀蘭、吳林玉英）：第二字也是常見姓，後面再接兩個字
-      if (sl === 1 && len === 3 && COMMON_SURNAME.has(c1)) {
+      if (sl === 1 && len === 3 && SURNAME_SET.has(c1)) {
         const c3 = t[i + 3], c4 = t[i + 4];
-        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && (!isCJK(c4) || NAME_STOP.has(c4) || titleAt(t, i + 4))) len = 4;
+        const endOk = !isCJK(c4) || NAME_STOP.has(c4) || !!titleAt(t, i + 4);
+        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && (endOk || COMMON_SURNAME.has(c1))) len = 4;
       }
       const name = t.substr(i, len);
       if (NOT_NAMES.has(name)) return null;
@@ -351,7 +352,7 @@
       for (let i = 0; i < t.length; i++) {
         const sl = surnameAt(t, i); if (!sl) continue;
         if (i > 0 && isCJK(t[i - 1]) && !roleBefore(t, i) && SURNAME_SET.has(t[i - 1])) continue;
-        for (const gl of [2, 1]) {
+        for (const gl of (sl === 1 && SURNAME_SET.has(t[i + 1]) ? [3, 2, 1] : [2, 1])) {
           const g = t.substr(i + sl, gl);
           if (g.length < gl || [...g].some(c => !isCJK(c) || NAME_STOP.has(c))) continue;
           const ti = titleAt(t, i + sl + gl, FULLNAME_TITLES);
@@ -397,6 +398,18 @@
       }
     });
 
+    // 冠夫姓：若只抓到前三字（張徐金），但全文出現「張徐金蓮」→ 改用四字
+    for (const p of [...persons.keys()]) {
+      if (p.length !== 3 || !SURNAME_SET.has(p[0]) || !SURNAME_SET.has(p[1])) continue;
+      const cnt = new Map();
+      for (const t of segments) { let k = -1; while ((k = t.indexOf(p, k + 1)) >= 0) { const x = t[k + 3]; if (isCJK(x) && !NAME_STOP.has(x) && !titleAt(t, k + 3)) cnt.set(x, (cnt.get(x) || 0) + 1); } }
+      const best = [...cnt].sort((a, b) => b[1] - a[1])[0];
+      if (best && !NOT_NAMES.has(p + best[0])) {
+        const full = p + best[0], pp = persons.get(p);
+        if (!persons.has(full)) persons.set(full, pp); else { const q = persons.get(full); q.first = Math.min(q.first, pp.first); if (!q.role) q.role = pp.role; }
+        persons.delete(p);
+      }
+    }
     // 英文名簡稱併入全名（Dewi → Dewi Lestari；王小明 不受影響）
     const alias = new Map();
     for (const a of [...persons.keys()]) for (const b of persons.keys()) {

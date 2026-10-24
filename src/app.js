@@ -46,6 +46,7 @@
     $('#progB').style.width = Math.round((frac || 0) * 100) + '%'; $('#progN').textContent = note || '';
   }
   const tick = () => new Promise(r => setTimeout(r, 0));
+  const errText = e => (e && e.message) || (e && e.type ? '瀏覽器事件錯誤（' + e.type + '）' : String(e));
   function download(blob, name) {
     const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
@@ -111,7 +112,7 @@
       startDoc(doc);
     } catch (e) {
       progress(false); console.error(e);
-      alert('讀取失敗：' + (e.message || e));
+      alert('讀取失敗：' + errText(e));
     }
   }
   function startDoc(doc) {
@@ -754,7 +755,7 @@
     };
     return doc;
   }
-  const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('頁面圖片讀取失敗，請按「重新開始」後重新上傳檔案')); i.src = src; });
   // 依標記算出各頁黑框
   function pageBoxes(pg, view) {
     const out = [];
@@ -1145,8 +1146,15 @@
   $('#warns').addEventListener('click', async e => {
     if (e.target.id !== 'btnReocr') return;
     const f = S.doc.file, keep = ['#sNames', '#sCustom', '#sAllow'].map(id => $(id).value);
-    try { const d = await Pdf.load(f, true); clearAll(true); ['#sNames', '#sCustom', '#sAllow'].forEach((id, k) => { $(id).value = keep[k]; }); startDoc(d); }
-    catch (err) { progress(false); alert('重讀失敗：' + (err.message || err)); }
+    // 新頁面的圖片要保留：先把舊的網址拿開，重讀完只清舊的（原本會把新圖片一起清掉，導致畫面變灰、輸出失敗）
+    const oldUrls = S.urls; S.urls = [];
+    try {
+      const d = await Pdf.load(f, true);
+      const newUrls = S.urls; S.urls = oldUrls; clearAll(true); S.urls = newUrls;
+      ['#sNames', '#sCustom', '#sAllow'].forEach((id, k) => { $(id).value = keep[k]; });
+      startDoc(d);
+    }
+    catch (err) { S.urls = oldUrls.concat(S.urls); progress(false); alert('重讀失敗：' + errText(err)); }
   });
   $('#preview').addEventListener('change', e => {
     const sel = e.target.closest('select[data-role]'); if (!sel) return;
@@ -1269,7 +1277,7 @@
         download(r.blob, ($('#outName').value.trim() || '文件_去識別化') + '.' + r.ext);
         S.downloaded = true; setStep();
         toast('✓ 已下載。請存放在機構規定的位置，原始檔不要上傳雲端。', { ms: 5000 });
-      } catch (err) { console.error(err); alert('輸出失敗：' + (err.message || err)); }
+      } catch (err) { console.error(err); alert('輸出失敗：' + errText(err)); }
       finally { progress(false); renderExport(); }
     }
     if (btn.id === 'btnCopy') {
