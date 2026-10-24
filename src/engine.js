@@ -762,6 +762,9 @@
       let rep = sp.rep;
       const m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep) || /^(Client|Family|Caregiver|Staff|Person) ([A-Z]{1,2})$/.exec(rep);
       if (m && text.slice(Math.max(0, sp.s - m[1].length - 1), sp.s).replace(/\s$/, '').endsWith(m[1])) rep = m[2];
+      // 自訂稱呼已含稱謂（A 阿嬤）、原文後面又接同一個稱謂（阿嬤）→ 不要重複
+      const tt = /(阿嬤|阿公|奶奶|爺爺|伯伯|阿姨|叔叔|先生|女士|小姐|太太)$/.exec(rep);
+      if (tt && text.startsWith(tt[1], sp.e)) rep = rep.slice(0, -tt[1].length).replace(/\s+$/, '');
       out.push({ s: sp.s, e: sp.e, rep, id: sp.id, keepLen: sp.keepLen });
     }
     return out;

@@ -26,7 +26,7 @@
   const blobURL = (txt, type) => URL.createObjectURL(new Blob([txt], { type: type || 'text/javascript' }));
 
   // ───────── 狀態 ─────────
-  const S = { doc: null, res: null, over: new Map(), view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
+  const S = { doc: null, res: null, over: new Map(), repOver: new Map(), nameMode: 'code', view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
 
   // ───────── 小工具 ─────────
   let toastEl = null, toastT = 0;
@@ -88,7 +88,34 @@
         en.count++;
       }
     }
+    applyNaming();
     renderAll();
+  }
+  // ───────── 人名替換方式（個案報告常用）─────────
+  // 代號：個案A、家屬B（預設，最安全）；王○明：保留姓與最後一字；另外每個人都可以自訂稱呼（例如「A 阿嬤」）
+  const maskName = n => n.length <= 2 ? n[0] + '○' : n[0] + '○'.repeat(n.length - 2) + n[n.length - 1];
+  function applyNaming() {
+    const changed = new Set();
+    for (const en of S.res.entities.values()) {
+      if (en.cat !== 'name') continue;
+      let rep = null;
+      if (S.repOver.has(en.original)) rep = S.repOver.get(en.original);
+      else if (S.nameMode === 'mask' && /^name:/.test(en.id) && /^[\u3400-\u9fff]{2,4}$/.test(en.original)) rep = maskName(en.original);
+      if (rep == null) continue;
+      en.defaultRep = en.defaultRep || en.rep; en.rep = rep; changed.add(en.id);
+    }
+    if (changed.size) for (const list of S.res.spans) for (const sp of list) if (changed.has(sp.id)) sp.rep = S.res.entities.get(sp.id).rep;
+  }
+  // 進階設定：每一行即時顯示有沒有在文件裡找到，避免「打了沒反應」
+  function renderSettingStatus() {
+    const all = S.doc ? S.doc.segments.join('\n') : '';
+    const cnt = w => { if (!w) return 0; let n = 0, k = -1; while ((k = all.indexOf(w, k + 1)) >= 0) n++; return n; };
+    const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+    const row = (w, extra) => { const n = cnt(w); return `<li class="${n ? 'ok' : 'miss'}">${n ? '✓' : '✗'} 「${escH(w)}」${extra || ''}${n ? `：找到 ${n} 處` : '：文件裡找不到這個字'}</li>`; };
+    const put = (id, items) => { const el = $(id); el.innerHTML = items.length ? `<ul>${items.join('')}</ul>` : ''; };
+    put('#stNames', S.opt ? S.opt.names.filter(n => lines('#sNames').some(l => l.startsWith(n.name))).map(n => { const en = S.res && S.res.entities.get('name:' + n.name); return row(n.name, en ? ` → ${escH(en.rep)}` : ''); }) : []);
+    put('#stCustom', S.opt ? S.opt.custom.map(c => row(c.word, ` → ${escH(c.rep)}`)) : []);
+    put('#stAllow', lines('#sAllow').map(w => row(w, '（不遮蔽）')));
   }
   let anaT = 0;
   const analyzeSoon = () => { clearTimeout(anaT); anaT = setTimeout(analyze, 350); };
@@ -1110,7 +1137,7 @@
   }
 
   function renderAll() { renderHowto(); renderWarns(); renderModes(); renderPreview(); renderSide(); }
-  function renderSide() { renderSum(); renderRules(); renderList(); renderExport(); setStep(); }
+  function renderSide() { renderSum(); renderRules(); renderList(); renderExport(); renderSettingStatus(); setStep(); }
   function renderHowto() {
     const vis = (S.doc.kind === 'pdf' || S.doc.kind === 'image') && S.mode === 'visual';
     const tips = vis
@@ -1178,7 +1205,7 @@
     const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
     let h = '';
     lines('#sNames').forEach(l => { const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員)$/.exec(l); h += `<span class="rule k-name">${escH(m ? m[1] : l)}<small>${m ? m[2] : '人名'}</small><button type="button" data-rm="#sNames" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
-    lines('#sCustom').forEach(l => { h += `<span class="rule k-custom">${escH(l.split(/[=＝]/)[0])}<small>其他</small><button type="button" data-rm="#sCustom" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
+    lines('#sCustom').forEach(l => { const kv = l.split(/[=＝]/); h += `<span class="rule k-custom">${escH(kv[0])}${kv[1] ? ` → ${escH(kv[1])}` : ''}<small>其他</small><button type="button" data-rm="#sCustom" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
     lines('#sAllow').forEach(l => { h += `<span class="rule allow">不遮蔽：${escH(l)}<button type="button" data-rm="#sAllow" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
     $('#rules').innerHTML = h;
   }
@@ -1187,6 +1214,7 @@
     if (!ents.length) { $('#listPane').innerHTML = '<div class="lhead"><h3>已找到的個資</h3></div><p class="note">目前沒有。</p>'; return; }
     const openSet = S.openGrp || (S.openGrp = new Set(['name']));
     let h = `<div class="lhead"><h3>已找到的個資</h3><span class="n note" style="margin:0">取消勾選＝不遮蔽</span></div>`;
+    if (ents.some(e => e.cat === 'name')) h += `<div class="naming"><div class="nm-h">人名替換成</div><div class="seg" id="nameSeg" role="group" aria-label="人名替換方式"><button type="button" data-nm="code" class="${S.nameMode === 'code' ? 'on' : ''}">代號：個案A、家屬B</button><button type="button" data-nm="mask" class="${S.nameMode === 'mask' ? 'on' : ''}">部分遮蔽：王○明</button></div><p class="note">${S.nameMode === 'mask' ? '⚠️ 保留姓氏和最後一字，熟人比較容易認出來；對外發表建議用代號。' : '個案報告、共學討論建議用代號。'}點人名右邊的 <b>✎</b> 可以改成你要的稱呼，例如「A 阿嬤」。</p></div>`;
     for (const cat of CAT_ORDER) {
       const list = ents.filter(e => e.cat === cat);
       if (!list.length) continue;
@@ -1195,7 +1223,9 @@
       h += `<details class="grp k-${info.color}" data-cat="${cat}" ${openSet.has(cat) ? 'open' : ''}><summary><span class="dot"></span>${info.label}<span class="cnt">${onN}／${list.length}</span></summary>` +
         list.map(e => {
           const o = isOn(e.id);
-          return `<label class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''}><span class="o">${escH(e.original)}<span class="arrow">→</span><span class="rep">${escH(e.rep || '（清空）')}</span> <span class="n">${e.count} 處</span></span><button type="button" class="go" data-go="${escH(e.id)}">看位置</button></label>`;
+          const ed = e.cat === 'name' && !e.id.startsWith('title:') && !e.id.startsWith('nick');
+          const custom = S.repOver.has(e.original);
+          return `<label class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''}><span class="o">${escH(e.original)}<span class="arrow">→</span><span class="rep${custom ? ' custom' : ''}">${escH(e.rep || '（清空）')}</span>${ed ? `<button type="button" class="repedit" data-orig="${escH(e.original)}" title="改成自訂稱呼" aria-label="改成自訂稱呼">✎</button>` : ''} <span class="n">${e.count} 處</span></span><button type="button" class="go" data-go="${escH(e.id)}">看位置</button></label>`;
         }).join('') + '</details>';
     }
     $('#listPane').innerHTML = h;
@@ -1400,7 +1430,29 @@
     toast(`已移除「${b.dataset.line.split(/[\s=＝]/)[0]}」`, { undo: () => { appendLine(b.dataset.rm, b.dataset.line); analyze(); } });
   });
   $('#listPane').addEventListener('change', e => { const r = e.target.closest('.ent'); if (r && e.target.type === 'checkbox') toggleEnt(r.dataset.id, e.target.checked); });
-  $('#listPane').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); flashEl(g.dataset.go); } });
+  $('#listPane').addEventListener('click', e => {
+    const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); flashEl(g.dataset.go); return; }
+    const nm = e.target.closest('[data-nm]');
+    if (nm) { if (S.nameMode !== nm.dataset.nm) { S.nameMode = nm.dataset.nm; analyze(); toast(S.nameMode === 'mask' ? '人名改成「王○明」的形式' : '人名改回代號：個案A、家屬B'); } return; }
+    const ed = e.target.closest('.repedit');
+    if (ed) {
+      e.preventDefault();
+      const orig = ed.dataset.orig, rep = ed.previousElementSibling;
+      const inp = document.createElement('input'); inp.className = 'repin'; inp.value = rep.textContent; inp.setAttribute('aria-label', `「${orig}」要替換成`);
+      rep.replaceWith(inp); ed.remove(); inp.focus(); inp.select();
+      let done = false;
+      const commit = ok => {
+        if (done) return; done = true;
+        const v = inp.value.trim(), prev = S.repOver.has(orig) ? S.repOver.get(orig) : null;
+        if (ok && v && v !== orig) S.repOver.set(orig, v); else if (ok && !v) S.repOver.delete(orig);
+        analyze();
+        if (ok) toast(v ? `「${orig}」全文都會換成「${v}」` : `「${orig}」改回預設代號`, { undo: () => { prev == null ? S.repOver.delete(orig) : S.repOver.set(orig, prev); analyze(); } });
+      };
+      inp.addEventListener('keydown', k => { if (k.key === 'Enter') { k.preventDefault(); commit(true); } else if (k.key === 'Escape') commit(false); });
+      inp.addEventListener('blur', () => commit(true));
+      inp.addEventListener('click', k => k.preventDefault());
+    }
+  });
   $('#listPane').addEventListener('toggle', e => { const d = e.target.closest('details[data-cat]'); if (!d) return; S.openGrp = S.openGrp || new Set(); d.open ? S.openGrp.add(d.dataset.cat) : S.openGrp.delete(d.dataset.cat); }, true);
   function labelRole(l) { if (/照服員|居服員|個管|督導|社工|護理|醫|治療師|照專/.test(l)) return '人員'; if (/看護|外看|移工|傭/.test(l)) return '看護'; if (/個案|案主|長者|住民|學員/.test(l)) return '個案'; return '家屬'; }
 
@@ -1521,7 +1573,7 @@
 
   function clearAll(silent) {
     S.urls.forEach(u => URL.revokeObjectURL(u)); S.urls = [];
-    S.doc = null; S.res = null; S.over = new Map(); S.outName = null; S.outFmt = null; S.reviewed = false; S.log = []; S.downloaded = false;
+    S.doc = null; S.res = null; S.over = new Map(); S.repOver = new Map(); S.outName = null; S.outFmt = null; S.reviewed = false; S.log = []; S.downloaded = false;
     $('#preview').innerHTML = ''; $('#listPane').innerHTML = ''; $('#expPane').innerHTML = ''; $('#warns').innerHTML = ''; $('#sumPane').innerHTML = ''; $('#rules').innerHTML = '';
     if (!silent) {
       ['#sNames', '#sCustom', '#sAllow', '#pasteIn'].forEach(id => { $(id).value = ''; });

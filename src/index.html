@@ -99,12 +99,15 @@
         <div class="panel" id="listPane"></div>
         <details class="panel set" id="setWrap">
           <summary>進階設定</summary>
-          <label>本案人名清單 <span class="hint">一行一位，可加角色：王小明 個案／李美華 家屬</span></label>
+          <label>本案人名清單 <span class="hint">系統沒抓到的人名，一行一位，可加角色：王小明 個案／李美華 家屬</span></label>
           <textarea id="sNames"></textarea>
-          <label>其他要遮蔽的詞 <span class="hint">可指定替換文字：臺大醫院=某醫學中心</span></label>
+          <div class="sstat" id="stNames" aria-live="polite"></div>
+          <label>其他要遮蔽的詞 <span class="hint">一行一個，用「=」指定換成什麼：臺大醫院=某醫學中心、七堵長青會=某社區據點</span></label>
           <textarea id="sCustom"></textarea>
+          <div class="sstat" id="stCustom" aria-live="polite"></div>
           <label>不要遮蔽的詞 <span class="hint">被誤判的字詞，一行一個</span></label>
           <textarea id="sAllow"></textarea>
+          <div class="sstat" id="stAllow" aria-live="polite"></div>
           <div class="grid2">
             <div><label>出生日期改成</label><select id="sAge"><option value="5">5 歲一級</option><option value="10">10 歲一級</option></select></div>
             <div><label>年齡基準日</label><input type="date" id="sRef"></div>
