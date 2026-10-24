@@ -531,7 +531,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ['看護', ['外籍看護工', '外籍看護', '外籍家庭看護', '看護工', '看護', '外看', '移工', '印傭', '菲傭', '越傭', '幫傭', '外勞']],
     ['人員', ['照顧管理專員', '職能治療師', '物理治療師', '語言治療師', '照管專員', '主治醫師', '評估人員', '訪視人員', '個管師', '居服員',
       '照服員', '居督', '督導', '社工師', '社工', '護理師', '護士', '醫師', '醫生', '治療師', '營養師', '藥師', '填表人', '評估者',
-      '記錄者', '紀錄者', '記錄人', '紀錄人', '承辦人', '個管', '照專', '簽名']]
+      '記錄者', '紀錄者', '記錄人', '紀錄人', '承辦人', '個管', '照專', '簽名', '單位負責人', '負責人']]
   ];
   const LABEL_LIST = [];
   ROLE_LABELS.forEach(([role, arr]) => arr.forEach(w => LABEL_LIST.push([w, role])));
@@ -582,7 +582,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     '照管中心', '長照中心', '居家護理所', '護理之家', '養護中心', '安養中心', '養護所', '養護之家', '綜合長照機構', '長照機構', '居家服務中心',
     '居服中心', '基金會', '協會', '社區關懷據點', '關懷據點', '巷弄長照站', '文健站', '復健中心', '物理治療所', '職能治療所', '藥局',
     '分院', '教會', '里辦公處', '公所', '小規模多機能', '團體家屋', '家庭托顧', '輔具中心', '輔具資源中心'];
-  const ORG_BOUNDARY = ['轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
+  const ORG_BOUNDARY = ['單位名稱', '機構名稱', '服務單位', '雇用單位', '僱用單位', '名稱', '轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
     '就醫', '就診', '回診', '出院', '住院', '至', '到', '於', '在', '去', '往', '從', '由', '與', '和', '及', '跟', '的', '是', '為', '被',
     '經', '今日', '昨日', '今天', '昨天', '明天', '個案', '案主', '家屬', '目前', '曾在', '曾於', '曾', '並', '且', '、', '／', '/'];
   const ORG_GENERIC = new Set(['地區', '區域', '社區', '附近', '鄰近', '大型', '一般', '公立', '私立', '教學', '當地', '其他', '某', '該',
@@ -746,11 +746,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const reNoisy = /(?<![0-9A-Za-z])[0-9?!OoIl|][0-9?!OoIl|\-\s]{6,14}[0-9?!OoIl|](?![0-9A-Za-z])/g;
         while ((m = reNoisy.exec(t))) {
           const d = (m[0].match(/[0-9]/g) || []).length, bad = (m[0].match(/[?!OoIl|]/g) || []).length;
-          if (d >= 6 && bad >= 1 && bad <= 2) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 6 });
+          if (d >= 6 && bad >= 1 && bad <= 2) add(si, m.index, m.index + m[0].length, /^0/.test(m[0]) ? { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone - 2 } : { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 6 });
         }
         // 辨識出的長串數字（電話、證號讀錯幾個字也算）
         const reDigits = /(?<![0-9A-Za-z])[0-9?!OoIl|][0-9?!OoIl|\-.\s]{7,16}[0-9?!OoIl|](?![0-9A-Za-z])/g;
-        while ((m = reDigits.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7 && !/\n/.test(m[0])) add(si, m.index, m.index + m[0].length, { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 7 });
+        while ((m = reDigits.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7 && !/\n/.test(m[0])) add(si, m.index, m.index + m[0].length, /^0/.test(m[0]) ? { cat: 'phone', rep: '【電話】', pri: PRIORITY.phone - 3 } : { cat: 'number', rep: '【號碼】', pri: PRIORITY.number - 7 });
         const reIdN = /(?<![A-Za-z0-9])[A-Z][12?][0-9?OoIl|]{8}(?![0-9])/g;
         while ((m = reIdN.exec(t))) if ((m[0].match(/[0-9]/g) || []).length >= 7) add(si, m.index, m.index + 10, { cat: 'idno', rep: '【身分證號】', pri: PRIORITY.idno - 1 });
       }
@@ -1733,9 +1733,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // 表單欄位：找到印刷的欄位名稱，就把右邊的填寫區整塊遮住（手寫看不懂也遮得到）
   const FIELD_PII = ['個案姓名', '長者姓名', '姓名', '出生年月日', '出生日期', '生日', '身分證字號', '身份證字號', '身分證', '身份證', '聯絡電話', '行動電話', '電話', '手機',
-    '戶籍地址', '居住地址', '通訊地址', '地址', '住址', '主要照顧者', '照顧者', '緊急聯絡人', '聯絡人', '病歷號', '案號', '家屬簽名', '個案簽名', '簽名', '簽章', '訪視人員', '評估人員', '評估者', '填表人', '個管師'];
+    '戶籍地址', '居住地址', '通訊地址', '地址', '住址', '主要照顧者', '照顧者', '緊急聯絡人', '聯絡人', '病歷號', '案號', '家屬簽名', '個案簽名', '簽名', '簽章', '訪視人員', '評估人員', '評估者', '填表人', '個管師', '單位負責人', '負責人'];
   const FIELD_STOP = ['性別', '年齡', '日期', '關係', '診斷', '等級', '身高', '體重', '血型', '婚姻', '教育', '宗教', '語言', '職業', '備註', '時間', '項目', '類別', '頻率'];
-  function findFields(text, boxes, pxW) {
+  function findFields(text, boxes, pxW, mask) {
     // 先找出所有欄位名稱的位置（一行可能有好幾個）
     const labs = [], all = [...FIELD_PII, ...FIELD_STOP].sort((a, b) => b.length - a.length);
     let ls = 0;
@@ -1766,32 +1766,106 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const x0 = L.x1 + h * 0.2;
       const x1 = right ? right.x0 - h * 0.3 : Math.min(pxW - 2, L.x1 + pxW * 0.55);
       const tall = /簽名|簽章/.test(L.lab) ? 1.8 : 1.0;   // 手寫簽名通常比欄位名稱大很多
-      if (x1 - x0 > h) out.push({ x: x0, y: L.cy - h * tall, w: x1 - x0, h: h * tall * 2, lab: L.lab });
+      if (x1 - x0 > h) {
+        const box = { x: x0, y: L.cy - h * tall, w: x1 - x0, h: h * tall * 2, lab: L.lab, open: !right };
+        out.push((mask && snapToCell(box, L, mask)) || box);
+      }
     }
+    return out;
+  }
+  // 表格格線：深色（排除藍色手寫）像素的遮罩
+  function darkMask(c) {
+    const W = c.width, H = c.height, d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+    const m = new Uint8Array(W * H);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) m[j] = (Math.min(d[i], d[i + 1], d[i + 2]) < 120 && d[i + 2] - Math.max(d[i], d[i + 1]) < 40) ? 1 : 0;
+    return { m, W, H };
+  }
+  // 把欄位遮蓋對齊到右邊那一格的格線（找不到格線就維持原本估算的範圍）
+  function snapToCell(box, L, { m, W, H }) {
+    const h = Math.max(L.h, 8), cy = Math.round(L.cy);
+    const vline = (x, y0, y1) => { let n = 0, k = 0; for (let y = Math.max(0, y0); y < Math.min(H, y1); y++, k++) if (m[y * W + x] || m[y * W + x - 1] || m[y * W + x + 1]) n++; return k > 0 && n / k > 0.9; };
+    const hline = (y, x0, x1) => { let n = 0, k = 0; for (let x = Math.max(0, x0); x < Math.min(W, x1); x++, k++) if (m[y * W + x] || m[(y - 1) * W + x] || m[(y + 1) * W + x]) n++; return k > 0 && n / k > 0.6; };
+    // 格線會貫穿整列；字的直筆畫只有一個字高 → 檢查 1.5 個字高的範圍
+    const ya = Math.round(cy - h * 0.75), yb = Math.round(cy + h * 0.75);
+    // 左邊格線（欄位名稱那格的右框）
+    let xl = -1;
+    for (let x = Math.round(L.x1 - h * 0.3); x < Math.min(W - 2, L.x1 + h * 6); x++) if (vline(x, ya, yb)) { xl = x; while (xl + 1 < W - 1 && vline(xl + 1, ya, yb)) xl++; break; }
+    if (xl < 0) return null;
+    // 右邊格線
+    let xr = -1;
+    const lim = box.open ? W - 2 : Math.min(W - 2, box.x + box.w + h);   // 同列右邊沒有別的欄位 → 一路找到格子右框
+    for (let x = xl + Math.round(h * 0.6); x < lim; x++) if (vline(x, ya, yb)) { xr = x; break; }
+    if (xr < 0) xr = Math.round(Math.min(W - 2, box.x + box.w));
+    // 上下格線
+    const xa = xl + 2, xb = xr - 2;
+    let yt = -1, ybt = -1;
+    for (let y = cy - 2; y > Math.max(1, cy - h * 4); y--) if (hline(y, xa, xb)) { yt = y; break; }
+    for (let y = cy + 2; y < Math.min(H - 2, cy + h * 4); y++) if (hline(y, xa, xb)) { ybt = y; break; }
+    if (yt < 0) yt = Math.round(box.y); if (ybt < 0) ybt = Math.round(box.y + box.h);
+    const pad = 3;
+    if (xr - xl < h || ybt - yt < h * 0.6) return null;
+    return { x: xl + pad, y: yt + pad, w: xr - xl - pad * 2, h: ybt - yt - pad * 2, lab: box.lab, snapped: true };
+  }
+  function snapSpanBox(b, { m, W, H }) {
+    const h = Math.max(8, b.h / 1.36), cy = Math.round(b.y + b.h / 2);   // b.h 已含上下留白
+    const ya = Math.round(cy - h * 0.75), yb = Math.round(cy + h * 0.75);
+    const vline = x => { let n = 0, k = 0; for (let y = Math.max(0, ya); y < Math.min(H, yb); y++, k++) if (m[y * W + x] || m[y * W + x - 1] || m[y * W + x + 1]) n++; return k > 0 && n / k > 0.9; };
+    let xl = -1, xr = -1;
+    for (let x = Math.round(b.x + h * 0.3); x > Math.max(1, b.x - h * 8); x--) if (vline(x)) { xl = x; break; }
+    for (let x = Math.round(b.x + b.w - h * 0.3); x < W - 2; x++) if (vline(x)) { xr = x; break; }   // 寬格子：一路找到右框（沒有上下框線的一般文字不會被對齊）
+    if (xl < 0 || xr < 0 || xr - xl < b.w * 0.6) return null;
+    const hline = y => { let n = 0, k = 0; for (let x = xl + 2; x < xr - 2; x++, k++) if (m[y * W + x] || m[(y - 1) * W + x] || m[(y + 1) * W + x]) n++; return k > 0 && n / k > 0.6; };
+    let yt = -1, ybt = -1;
+    for (let y = cy - 2; y > Math.max(1, cy - h * 3); y--) if (hline(y)) { yt = y; break; }
+    for (let y = cy + 2; y < Math.min(H - 2, cy + h * 3); y++) if (hline(y)) { ybt = y; break; }
+    if (yt < 0 || ybt < 0 || ybt - yt > h * 5 || xr - xl > W * 0.85) return null;
+    return { x: xl + 3, y: yt + 3, w: xr - xl - 6, h: ybt - yt - 6 };
+  }
+  // 兩次辨識得到同一格時只留一個
+  function dedupeBoxes(list) {
+    const out = [];
+    for (const b of list) if (!out.some(o => Math.abs(o.x - b.x) < 6 && Math.abs(o.y - b.y) < 6 && Math.abs(o.w - b.w) < 12 && Math.abs(o.h - b.h) < 12)) out.push(b);
+    return out;
+  }
+  // 擦掉表格框線再辨識：框線緊貼文字時，OCR 會把線當成字（實測證明書類表格 42 → 84 分）
+  function removeLines(c, mask) {
+    const { m, W, H } = mask;
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const g = out.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0);
+    const im = g.getImageData(0, 0, W, H), d = im.data;
+    const L = Math.round(Math.min(W, H) / 15), er = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) { let run = 0; for (let x = 0; x <= W; x++) { if (x < W && m[y * W + x]) run++; else { if (run >= L) for (let k = x - run; k < x; k++) for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy >= 0 && yy < H) er[yy * W + k] = 1; } run = 0; } } }
+    for (let x = 0; x < W; x++) { let run = 0; for (let y = 0; y <= H; y++) { if (y < H && m[y * W + x]) run++; else { if (run >= L) for (let k = y - run; k < y; k++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx >= 0 && xx < W) er[k * W + xx] = 1; } run = 0; } } }
+    for (let j = 0; j < W * H; j++) if (er[j]) d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = 255;
+    g.putImageData(im, 0, 0);
     return out;
   }
   async function runOCR(c, onp) {
     const w = await getOCR(onp);
     w._onp = onp;
+    const mask = darkMask(c);
     // 小圖放大到長邊約 2200 像素再辨識（實測 1.5 倍最好；放更大反而變差）
     const long = Math.max(c.width, c.height), sc = Math.max(1, Math.min(1.6, 2200 / long));
-    let src = c;
-    if (sc > 1.05) { src = document.createElement('canvas'); src.width = Math.round(c.width * sc); src.height = Math.round(c.height * sc); const g = src.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(c, 0, 0, src.width, src.height); }
-    // 兩種版面模式各辨識一次：PSM 3（一般文件）、PSM 11（表單、照片）。兩邊找到的個資都遮。
+    const scaled = cv => { if (sc <= 1.05) return cv; const o = document.createElement('canvas'); o.width = Math.round(cv.width * sc); o.height = Math.round(cv.height * sc); const g = o.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cv, 0, 0, o.width, o.height); return o; };
     const runs = [];
-    for (const psm of ['3', '11']) {
+    const run = async (cv, psm) => {
       await w.setParameters({ tessedit_pageseg_mode: psm });
-      const r = await w.recognize(src, {}, { blocks: true, text: false });
-      runs.push(Object.assign(ocrToChars(r.data, src === c ? 1 : sc), { conf: r.data.confidence || 0 }));
-    }
-    if (src !== c) src.width = src.height = 1;
+      const r = await w.recognize(cv, {}, { blocks: true, text: false });
+      runs.push(Object.assign(ocrToChars(r.data, cv.width / c.width), { conf: r.data.confidence || 0 }));
+    };
+    // 1) 擦掉表格框線後，PSM 3（一般文件）＋ PSM 11（表單）各辨識一次（掃描表格實測 42 → 84 分）
+    const clean = scaled(removeLines(c, mask));
+    await run(clean, '3'); await run(clean, '11');
+    clean.width = clean.height = 1;
+    // 2) 分數還是不高（常見於手寫、斜拍照片）→ 再用原圖辨識一次；擦線對照片有時反而有害
+    if (Math.max(...runs.map(r => r.conf)) < 75) { const raw = scaled(c); await run(raw, '11'); if (raw !== c) raw.width = raw.height = 1; }
     runs.sort((a, b) => b.conf - a.conf);
-    const [main, alt] = runs;
-    const fields = findFields(main.text, main.boxes, c.width).concat(findFields(alt.text, alt.boxes, c.width));
-    return { text: main.text, boxes: main.boxes, conf: main.conf, alt, fields };
+    const [main, ...alts] = runs;
+    const fields = dedupeBoxes(runs.flatMap(r => findFields(r.text, r.boxes, c.width, mask)));
+    return { text: main.text, boxes: main.boxes, conf: main.conf, alts, fields, mask };
   }
 
-  if (/[?&]debug\b/.test(location.search)) window.__dbg = { getOCR, ocrToChars, findFields };
+  if (/[?&]debug\b/.test(location.search)) window.__dbg = { getOCR, ocrToChars, findFields, darkMask, snapToCell, removeLines, runOCR };
 
   // ═════════ PDF ═════════
   class CMapFactory {
@@ -1821,7 +1895,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // 每頁一段文字（含換行）
     doc.pages.forEach((pg, k) => { pg.seg = doc.segments.length; doc.segments.push(pg.text); doc.pageOf.push(k); });
     // 第二次辨識的結果：不顯示在文字版，只用來多抓黑框
-    doc.pages.forEach((pg, k) => { if (pg.alt) { pg.altSeg = doc.segments.length; doc.segments.push(pg.alt.text); doc.pageOf.push(k); } });
+    doc.pages.forEach((pg, k) => { pg.altSegs = (pg.alts || []).map(a => { const si = doc.segments.length; doc.segments.push(a.text); doc.pageOf.push(k); return si; }); });
     doc.pageCount = doc.pages.length;
     doc.modes = [{ v: 'visual', label: '黑框版' }, { v: 'text', label: '文字版' }];
     doc.renderPreview = (view) => {
@@ -1832,6 +1906,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       doc.pages.forEach((pg, k) => {
         h += `<div class="vwrap"><div class="vpage" data-page="${k}" style="aspect-ratio:${pg.pxW}/${pg.pxH};width:${Math.min(900, pg.pxW)}px"><span class="lbl">第 ${k + 1} 頁${pg.ocr ? '・文字辨識' : ''}</span><img alt="" src="${pg.url}">`;
         for (const b of pageBoxes(pg, view)) {
+          if (b.hidden) continue;
           h += `<div class="box ${b.manual ? 'manual on' : (b.on ? 'on' : 'off')} k-${b.color}" ${b.id ? `data-id="${escH(b.id)}"` : ''} ${b.manual ? `data-manual="${b.mi}"` : ''} title="${escH(b.title)}" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%"></div>`;
         }
         h += '</div></div>';
@@ -1873,7 +1948,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function pageBoxes(pg, view) {
     const out = [];
     const srcs = [[pg.seg, pg.boxes]];
-    if (pg.altSeg != null) srcs.push([pg.altSeg, pg.alt.boxes]);
+    (pg.altSegs || []).forEach((si, k) => srcs.push([si, pg.alts[k].boxes]));
     for (const [seg, bxs] of srcs) {
     const spans = (S.res && S.res.spans[seg]) || [];
     const text = S.doc.segments[seg];
@@ -1892,7 +1967,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     }
     out.forEach(b => { const px = Math.max(2, b.h * (pg.ocr ? 0.4 : 0.18)), py = Math.max(2, b.h * (pg.ocr ? 0.18 : 0.12)); b.x -= px; b.y -= py; b.w += 2 * px; b.h += 2 * py; });
-    (pg.fields || []).forEach(f => { const id = 'field:' + f.lab; out.push({ x: f.x, y: f.y, w: f.w, h: f.h, id, on: isOn(id), color: 'custom', title: `「${f.lab}」欄位的填寫區（點一下切換）`, field: true }); });
+    // 掃描頁：文字黑框若在表格格子裡，對齊到整格（比較整齊，也不會露出半個字）
+    if (pg.mask) {
+      pg.snapCache = pg.snapCache || new Map();
+      for (const b of out) {
+        const key = [b.x, b.y, b.w, b.h].map(Math.round).join(',');
+        if (!pg.snapCache.has(key)) pg.snapCache.set(key, snapSpanBox(b, pg.mask));
+        const r = pg.snapCache.get(key);
+        if (r) Object.assign(b, r);
+      }
+    }
+    // 使用者取消勾選的個資，若被欄位整塊遮蓋蓋住，那塊也一起取消（不然取消了黑框還在）
+    const offBoxes = out.filter(b => S.over.get(b.id) === false);
+    const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    (pg.fields || []).forEach(f => {
+      const id = 'field:' + f.lab;
+      const fb = { x: f.x, y: f.y, w: f.w, h: f.h, id, color: 'custom', title: `「${f.lab}」欄位的填寫區（點一下切換）`, field: true };
+      const linkedOff = S.over.get(id) !== true && offBoxes.some(o => overlap(o, fb) > o.w * o.h * 0.3);
+      fb.on = isOn(id) && !linkedOff;
+      if (linkedOff) fb.hidden = true;
+      out.push(fb);
+    });
     (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, title: '手動遮蓋（點一下刪除）', color: 'custom' }));
     return out;
   }
@@ -1922,7 +2017,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         // 不依賴 requestAnimationFrame（分頁在背景時會暫停）
         const raf = window.requestAnimationFrame; window.requestAnimationFrame = cb => setTimeout(cb, 0);
         try { await page.render({ canvasContext: g, viewport: vp }).promise; } finally { window.requestAnimationFrame = raf; }
-        let text = '', boxes = [], ocr = false, fields = [], alt = null;
+        let text = '', boxes = [], ocr = false, fields = [], alts = [], pmask = null;
         if (!forceOCR) {
           const tc = await page.getTextContent();
           let lastY = null, lastEnd = null;
@@ -1945,11 +2040,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (text.replace(/\s/g, '').length < 15) {
           // 掃描頁 → 文字辨識
           const o = await runOCR(c, (t, f) => progress(t || `文字辨識 第 ${k} / ${n} 頁…`, ((k - 1) + (f || 0)) / n, '中文辨識在本機進行，需要一點時間'));
-          ({ text, boxes } = o); alt = o.alt; ocr = true; ocrN++; fields = o.fields; minConf = Math.min(minConf, o.conf);
+          ({ text, boxes } = o); alts = o.alts; pmask = o.mask; ocr = true; ocrN++; fields = o.fields; minConf = Math.min(minConf, o.conf);
         }
         const blob = await canvasToBlob(c, 'image/jpeg', 0.9);
         const url = URL.createObjectURL(blob); S.urls.push(url);
-        pages.push({ text, boxes, ocr, fields, alt, url, pxW: c.width, pxH: c.height, ptW: vp0.width, ptH: vp0.height, manual: [] });
+        pages.push({ text, boxes, ocr, fields, alts, mask: pmask, url, pxW: c.width, pxH: c.height, ptW: vp0.width, ptH: vp0.height, manual: [] });
         c.width = c.height = 1; page.cleanup();
       }
       await pdf.destroy();
@@ -1973,9 +2068,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
       const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
       const o = await runOCR(c, (t, f) => progress(t || '文字辨識中…', 0.15 + 0.85 * (f || 0), '中文辨識在本機進行，需要一點時間'));
-      const { text, boxes, fields, alt } = o;
+      const { text, boxes, fields, alts, mask } = o;
       const blob = await canvasToBlob(c, 'image/png'); const url = URL.createObjectURL(blob); S.urls.push(url);
-      const pages = [{ text, boxes, ocr: true, fields, alt, url, pxW: c.width, pxH: c.height, ptW: c.width * 0.75, ptH: c.height * 0.75, manual: [] }];
+      const pages = [{ text, boxes, ocr: true, fields, alts, mask, url, pxW: c.width, pxH: c.height, ptW: c.width * 0.75, ptH: c.height * 0.75, manual: [] }];
       const doc = visualDoc({ kind: 'image', kindLabel: '圖片', name: file.name, pages, isPng: /png/i.test(file.type) });
       doc.warns.push(o.conf < 70
         ? { bad: true, t: `這張圖片的文字辨識品質偏低（${Math.round(o.conf)} 分，常見於手寫或斜拍）。自動遮蓋可能漏掉很多：請在黑框版逐一檢查，把姓名、電話、地址、簽名等用拖曳方式補遮。` }
