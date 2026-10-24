@@ -92,7 +92,7 @@
 
   const COMMON_SURNAME = new Set('陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏'.split(''));
   // 名字後面常接的詞（用來判斷名字到哪裡結束）
-  const FOLLOW = /^(互動|互相|一起|一同|兩人|等人|近期|近日|近來|最近|參與|參加|喜歡|今天|今日|目前|表示|自述|主訴|提到|認為|覺得|希望|同意|拒絕|本身|平時|平日|每天|每週|每日|經常|常常|使用|需要|因為|由於|已經|仍然|一直|沒有|不會|可以|能夠|接受|進行|出席|來到|回到|住在|居住|與|和|及|於|在|的|是|有|說|因|由|到|被|把|將|也|都|則|就|才|又|再|曾|仍)/;
+  const FOLLOW = /^(晚上|早上|白天|中午|下午|每天|每週|會|要|想|互動|互相|一起|一同|兩人|等人|近期|近日|近來|最近|參與|參加|喜歡|今天|今日|目前|表示|自述|主訴|提到|認為|覺得|希望|同意|拒絕|本身|平時|平日|每天|每週|每日|經常|常常|使用|需要|因為|由於|已經|仍然|一直|沒有|不會|可以|能夠|接受|進行|出席|來到|回到|住在|居住|與|和|及|於|在|的|是|有|說|因|由|到|被|把|將|也|都|則|就|才|又|再|曾|仍)/;
   const PLACE_END = new Set('省市縣區鄉鎮村里路街巷號樓籍科院所部局處系族館站校隊組會社團島山湖河'.split(''));
   const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
   const COMMON_WORDS = new Set('討論 確認 說明 告知 溝通 聯繫 調整 開立 診斷 處方 喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
@@ -347,9 +347,12 @@
           }
           continue;
         }
-        if (!surnameAt(t, i) && isCJK(t[i]) && isCJK(t[i + 1]) && !NAME_STOP.has(t[i]) && !NAME_STOP.has(t[i + 1]) &&
-            (!isCJK(t[i + 2]) || NAME_STOP.has(t[i + 2])) && !COMMON_WORDS.has(t.substr(i, 2)) && rb.label !== '姓名') {
-          const nk = t.substr(i, 2);
+        // 暱稱只認典型形式（小美、阿妮、玲玲）；「長者、個案、案主」在量表裡是一般名詞，後面的字不猜
+        const nk0 = t.substr(i, 2);
+        const nickShape = /^[小阿老]./.test(nk0) || nk0[0] === nk0[1];
+        if (rb.role !== '個案' && nickShape && !surnameAt(t, i) && isCJK(t[i]) && isCJK(t[i + 1]) && !NAME_STOP.has(t[i + 1]) &&
+            (!isCJK(t[i + 2]) || NAME_STOP.has(t[i + 2]) || FOLLOW.test(t.slice(i + 2))) && !COMMON_WORDS.has(nk0) && !/^(小時|小便|小心|小姐|小組|小學|小腿|小孩|老人|老師|老化|阿公|阿嬤|阿伯|阿姨|阿媽)$/.test(nk0)) {
+          const nk = nk0;
           if (!persons.has(nk)) add(si, i, i + 2, { cat: 'name', key: 'nick2:' + nk, rep: '【人名】', pri: PRIORITY.suggest, suggest: true, why: `接在「${rb.label}」後面，可能是暱稱` });
         }
         const nm = takeName(t, i);
@@ -395,10 +398,13 @@
         const words = m[0].split(/\s/);
         if (words.every(w => MED_LATIN_ALLOW.has(w))) continue;
         if (persons.has(m[0])) continue;
+        // 英文單字大多不是人名：只有附近提到看護、外籍、移工、國籍時才問
+        const near = t.slice(Math.max(0, m.index - 14), m.index + m[0].length + 14);
+        if (!/看護|外看|外籍|移工|印傭|菲傭|越傭|幫傭|印尼|菲律賓|越南|泰國|caregiver|helper/i.test(near)) continue;
         add(si, m.index, m.index + m[0].length, { cat: 'name', key: 'latin:' + m[0], rep: '【人名】', pri: PRIORITY.latin, suggest: true, why: '英文名字（可能是外籍看護）' });
       }
       // 「某某表示／說」（低信心）
-      const reSay = new RegExp(`([${CJK}]{2,4})(?=表示|說|提到|告知|自述|主訴|回應|反應|抱怨|同意|拒絕|希望|擔心)`, 'g');
+      const reSay = new RegExp(`([${CJK}]{2,4})(?=表示|說(?![明話服法過出成])|提到|告知|自述|主訴|回應|反應|抱怨|同意|拒絕|希望|擔心)`, 'g');
       while ((m = reSay.exec(t))) {
         for (let k = 0; k < m[1].length - 1; k++) {
           const nm = takeName(m[1], k);
