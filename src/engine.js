@@ -552,6 +552,22 @@
     }
     for (const [w, own] of owners) if (own.size === 1 && !persons.has(w) && !alias.has(w)) alias.set(w, [...own][0]);
     for (const [zh, full] of cjkAlias) if (persons.has(full) || alias.has(full)) alias.set(zh, alias.get(full) || full);
+    // 同名不同姓（王大明 vs 陳大明）：別的姓＋相同名字，是另一個人，不能被「大明」縮寫吃掉
+    {
+      const giv = new Map();
+      for (const nm of persons.keys()) if (nm.length === 3 && !/^[A-Za-z]/.test(nm) && !SURNAME_COMPOUND.some(c => nm.startsWith(c))) giv.set(nm.slice(1), nm[0]);
+      segments.forEach((t, si) => {
+        for (const [g, sur] of giv) {
+          let k = 0;
+          while ((k = t.indexOf(g, k + 1)) > 0) {
+            const c = t[k - 1], b = t[k - 2];
+            if (c === sur || !SURNAME_SET.has(c) || persons.has(c + g)) continue;
+            if (k >= 2 && isCJK(b) && !roleBefore(t, k - 1) && !/[、與和及跟同]/.test(b)) continue;
+            notePerson(c + g, (roleBefore(t, k - 1) || {}).role || null, si, k - 1);
+          }
+        }
+      });
+    }
     // Pass 2：已知人名擴散到全文（含名字縮寫）
     const personList = [...persons.keys()].sort((a, b) => b.length - a.length);
     const givenMap = new Map(), maidenMap = new Map();

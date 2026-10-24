@@ -322,3 +322,13 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
 .boxbar button{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700;cursor:pointer}
 .boxbar button:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
 @media (pointer:coarse){.box .hd{width:24px;height:24px;left:auto}.box .hd[data-h=nw]{left:-13px;top:-13px}.box .hd[data-h=ne]{right:-13px;top:-13px}.box .hd[data-h=sw]{left:-13px;bottom:-13px}.box .hd[data-h=se]{right:-13px;bottom:-13px}}
+
+/* 回報問題 */
+.rtypes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.rtypes label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;cursor:pointer;font-size:14px;background:var(--panel)}
+.rtypes label:has(input:checked){border-color:var(--teal);background:var(--soft)}
+.rtypes input{accent-color:var(--teal);margin:0}
+.rwarn{background:#fff4e0;border:1.5px solid #F4A93C;color:#5a3d00;border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.6}
+.rtech{display:block;white-space:normal;word-break:break-all}
+@media (max-width:560px){.rtypes{grid-template-columns:1fr}}
+.dlg a.btn{text-decoration:none}

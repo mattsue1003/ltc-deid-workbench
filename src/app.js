@@ -146,12 +146,59 @@
         p = b;
       }
       out += text.slice(p, ne);
-      if (out !== n.textContent) { n.textContent = out; if (n.localName === 't') n.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); }
+      if (out !== n.textContent) { n.textContent = out; if (n.localName === 't' && (n.namespaceURI === W_NS || n.namespaceURI === S_NS)) n.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); }
     });
   }
   // Office 檔不能有「資料夾項目」（word/、xl/…）：JSZip 寫檔時會自動加，Word／Excel 會因此判定檔案損毀要求修復
   function officeZip(z) { for (const k of Object.keys(z.files)) if (z.files[k].dir) delete z.files[k]; return z; }
   const parseXml = s => new DOMParser().parseFromString(s, 'application/xml');
+  // 圖表（Word／Excel 共用）：圖表會另存一份「快取」文字（類別名稱、數列名稱、標題），要一起處理
+  const CACHE_TAGS = new Set(['strCache', 'multiLvlStrCache', 'strLit']);
+  async function loadCharts(zip, segments, groups) {
+    const docs = {}, segs = [];
+    for (const p of Object.keys(zip.files).filter(p => /^(word|xl)\/charts\/chart\d*\.xml$/.test(p))) {
+      const d = parseXml(await zip.file(p).async('string')); docs[p] = d;
+      for (const el of d.getElementsByTagName('*')) {
+        let ok = el.localName === 't' && /drawingml\/2006\/main$/.test(el.namespaceURI || '');
+        if (!ok && el.localName === 'v') for (let q = el.parentNode; q && q.nodeType === 1; q = q.parentNode) if (CACHE_TAGS.has(q.localName)) { ok = true; break; }
+        if (ok && el.textContent.trim()) { segs.push(segments.length); groups.push({ nodes: [el], seg: segments.length }); segments.push(el.textContent); }
+      }
+    }
+    return { docs, segs };
+  }
+  // 內嵌物件：內嵌 Excel 用已找到的個資逐字替換；其他格式（.bin 等）無法處理，只能提醒
+  const embedList = zip => Object.keys(zip.files).filter(p => /^(word|xl)\/embeddings\/[^/]+$/.test(p));
+  function embedWarns(zip, warns) {
+    const em = embedList(zip); if (!em.length) return;
+    const xl = em.filter(p => /\.xlsx$/i.test(p)).length, other = em.length - xl;
+    if (xl) warns.push({ t: `檔案內嵌了 ${xl} 個 Excel 活頁簿（通常是圖表的資料）。系統會把已找到的個資一起替換，但沒被找到的不會處理，下載後請在 Office 裡「編輯資料」檢查。` });
+    if (other) warns.push({ bad: true, t: `檔案內嵌了 ${other} 個其他物件（例如 Word、PDF 或舊版 Office 物件），裡面的內容系統無法處理。建議先在原檔刪除這些物件，或改用「純文字」輸出。` });
+  }
+  function replaceKnown(text) {
+    if (!S.res || !text) return text;
+    const pairs = [];
+    for (const en of S.res.entities.values()) {
+      if (en.cat === 'field' || !isOn(en.id)) continue;
+      for (const v of en.variants) if (v && v.length >= 2) pairs.push([v, en.rep]);
+    }
+    pairs.sort((a, b) => b[0].length - a[0].length);
+    for (const [v, r] of pairs) if (text.includes(v)) text = text.split(v).join(r);
+    return text;
+  }
+  async function scrubEmbeds(zip) {
+    for (const p of embedList(zip).filter(p => /\.xlsx$/i.test(p))) {
+      try {
+        const z = await JSZip.loadAsync(await zip.file(p).async('uint8array'));
+        for (const q of Object.keys(z.files).filter(q => /^xl\/(sharedStrings|worksheets\/[^/]+|charts\/[^/]+|comments\d*)\.xml$/.test(q))) {
+          const d = parseXml(await z.file(q).async('string'));
+          for (const el of d.getElementsByTagName('*')) if ((el.localName === 't' || el.localName === 'v') && !el.firstElementChild) { const t = replaceKnown(el.textContent); if (t !== el.textContent) el.textContent = t; }
+          z.file(q, serXml(d));
+        }
+        await scrubOffice(z);
+        zip.file(p, await officeZip(z).generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+      } catch (e) { /* 內嵌檔壞掉就保留原狀，警告已提示 */ }
+    }
+  }
   const serXml = d => new XMLSerializer().serializeToString(d);
   function closestNS(n, ns, local) { for (let p = n.parentNode; p; p = p.parentNode) if (p.namespaceURI === ns && p.localName === local) return p; return null; }
 
@@ -222,11 +269,15 @@
         if (/comments\.xml$/.test(p)) comments += d.getElementsByTagNameNS(W_NS, 'comment').length;
       }
       imgs = Object.keys(zip.files).filter(p => /^word\/media\//.test(p)).length;
+      const charts = await loadCharts(zip, segments, groups);
+      charts.segs.forEach(seg => paras.push({ part: 'chart', seg }));
       const warns = [];
+      if (Object.keys(charts.docs).length) warns.push({ t: `文件含 ${Object.keys(charts.docs).length} 個圖表，圖表裡的文字（類別、標題）也會一起處理。` });
+      embedWarns(zip, warns);
       if (imgs) warns.push({ t: `文件內有 ${imgs} 張圖片（可能是照片、簽名或證件）。預設會換成灰色方塊，可在「設定」更改。` });
       if (tracked) warns.push({ t: `文件含「追蹤修訂」紀錄 ${tracked} 處，刪除過的文字也會一起處理；審閱者姓名會改成「審閱者」。建議原檔先「接受所有修訂」。` });
       if (comments) warns.push({ t: `文件含 ${comments} 則註解，內容會一起處理，作者姓名會移除。` });
-      const PART_LABEL = p => /header/.test(p) ? '頁首' : /footer/.test(p) ? '頁尾' : /footnotes/.test(p) ? '註腳' : /endnotes/.test(p) ? '章節附註' : /comments/.test(p) ? '註解' : '';
+      const PART_LABEL = p => /header/.test(p) ? '頁首' : /footer/.test(p) ? '頁尾' : /footnotes/.test(p) ? '註腳' : /endnotes/.test(p) ? '章節附註' : /comments/.test(p) ? '註解' : p === 'chart' ? '圖表' : '';
       return {
         kind: 'docx', kindLabel: 'Word', name: file.name, segments, warns,
         renderPreview(view) {
@@ -261,10 +312,12 @@
             s = s.replace(/Target="mailto:[^"]*"/g, 'Target="mailto:"').replace(/Target="tel:[^"]*"/g, 'Target="tel:"');
             zip.file(p, s);
           }
+          for (const [p, d] of Object.entries(f._charts)) zip.file(p, serXml(d));
+          await scrubEmbeds(zip);
           await scrubOffice(zip, isOn);
           return { blob: await officeZip(zip).generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), ext: 'docx' };
         },
-        _zip: zip, _parts: parts, _groups: groups, _xmls: xmls
+        _zip: zip, _parts: parts, _groups: groups, _xmls: xmls, _charts: charts.docs
       };
     }
   };
@@ -443,7 +496,10 @@
           }
         }
       }
+      const charts = await loadCharts(zip, segments, groups);
       const warns = [];
+      if (Object.keys(charts.docs).length) warns.push({ t: `檔案含 ${Object.keys(charts.docs).length} 個圖表，圖表裡暫存的文字（類別、標題）也會一起處理。` });
+      embedWarns(zip, warns);
       if (Object.keys(zip.files).some(p => /^xl\/pivotCache\//.test(p))) warns.push({ bad: true, t: '這個檔案含「樞紐分析」快取，裡面可能保有原始資料的副本。建議在 Excel 先刪除樞紐分析表，或輸出成 CSV。' });
       if (Object.keys(zip.files).some(p => /^xl\/externalLinks\//.test(p))) warns.push({ t: '檔案有連結到其他活頁簿，連結的暫存值可能含個資，建議先「中斷連結」。' });
       const media = Object.keys(zip.files).filter(p => /^xl\/media\//.test(p)).length;
@@ -504,10 +560,12 @@
             for (const el of d.getElementsByTagName('*')) if (el.localName === 'person') { el.setAttribute('displayName', '審閱者'); if (el.hasAttribute('userId')) el.setAttribute('userId', ''); }
             z.file(p, serXml(d));
           }
+          for (const [p, d] of Object.entries(fresh._charts)) z.file(p, serXml(d));
+          await scrubEmbeds(z);
           await scrubOffice(z, isOn);
           return { blob: await officeZip(z).generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), ext: 'xlsx' };
         },
-        _groups: groups, _ssDoc: ssDoc, _cmt: cmtDocs
+        _groups: groups, _ssDoc: ssDoc, _cmt: cmtDocs, _charts: charts.docs
       };
       gridCommon(doc);
       // 工作表名稱含個資提醒
@@ -1476,6 +1534,40 @@
 
   // 隱私說明＋連線測試
   $('#btnLock').addEventListener('click', () => { $('#testRes').textContent = ''; $('#dlgLock').showModal(); });
+
+  // ───────── 回報問題：開 Google 表單（新分頁），只帶入問題類型、檔案類型、版本與瀏覽器，不帶任何檔案內容 ─────────
+  const APP_VER = '__APP_VER__';
+  const REPORT = { url: 'https://docs.google.com/forms/d/e/1FAIpQLSdA5RtIganAGsrH-JFk-9jec0J3n2y8Zuma5fVTwqoJzLRsXQ/viewform', type: 'entry.1393603095', file: 'entry.1412111892', tech: 'entry.733166479' };   // 表單預填欄位代號（entry.xxx）
+  const R_TYPES = ['漏遮：個資沒被找出來', '誤遮：不是個資卻被遮', '下載的檔案打不開或排版跑掉', '照片／掃描檔辨識不好', '按鈕沒反應、操作卡住', '建議新功能', '其他'];
+  const R_FILE = { docx: 'Word', xlsx: 'Excel', csv: 'CSV', pdf: 'PDF', image: '照片／掃描檔', text: '貼上文字', txt: '貼上文字' };
+  function techInfo() {
+    const ua = navigator.userAgent;
+    const br = /Edg\/(\d+)/.exec(ua) ? 'Edge ' + RegExp.$1 : /Chrome\/(\d+)/.exec(ua) ? 'Chrome ' + RegExp.$1 : /Firefox\/(\d+)/.exec(ua) ? 'Firefox ' + RegExp.$1 : /Version\/(\d+).*Safari/.exec(ua) ? 'Safari ' + RegExp.$1 : '其他瀏覽器';
+    const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : '其他系統';
+    const d = S.doc;
+    return [`版本 ${APP_VER}`, location.protocol === 'file:' ? '離線版' : '網頁版', br, os, d ? `檔案：${d.kindLabel || d.kind}` : '尚未開檔',
+      d && d.pages ? `${d.pages.length} 頁` : '', S.mode ? `輸出：${S.mode === 'text' ? '文字' : '黑框'}` : '', d && S.res ? `標記 ${S.res.entities.size} 項` : ''].filter(Boolean).join('｜');
+  }
+  function reportUrl() {
+    const sel = document.querySelector('#rTypes input:checked');
+    const q = new URLSearchParams({ usp: 'pp_url' });
+    if (sel && REPORT.type) q.set(REPORT.type, sel.value);
+    const f = S.doc && R_FILE[S.doc.kind];
+    if (f && REPORT.file) q.set(REPORT.file, f);
+    if (REPORT.tech) q.set(REPORT.tech, techInfo());
+    return REPORT.url + '?' + q.toString();
+  }
+  function openReport(e) {
+    if (e) e.preventDefault();
+    $('#rTypes').innerHTML = R_TYPES.map((t, i) => `<label><input type="radio" name="rtype" value="${t}"${i === 0 ? ' checked' : ''}>${t}</label>`).join('');
+    $('#rTech').textContent = techInfo();
+    $('#btnReportGo').href = reportUrl();
+    $('#dlgReport').showModal();
+  }
+  $('#btnReport').addEventListener('click', openReport);
+  $('#lnkReport').addEventListener('click', openReport);
+  $('#rTypes').addEventListener('change', () => { $('#btnReportGo').href = reportUrl(); });
+  $('#btnReportGo').addEventListener('click', () => setTimeout(() => $('#dlgReport').close(), 300));
   if (location.protocol === 'file:') $('#btnOffline').classList.add('hidden');
   $('#btnTest').addEventListener('click', async () => {
     const res = $('#testRes'); res.textContent = '測試中…'; res.style.color = '';

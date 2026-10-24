@@ -46,7 +46,8 @@ for k, v in libs.items():
 tpl = rd(SRC / 'index.html')
 page = (tpl.replace('/*CSS*/', rd(SRC / 'app.css'))
            .replace('/*ENGINE*/', rd(SRC / 'engine.js'))
-           .replace('/*APP*/', rd(SRC / 'app.js')))
+           .replace('/*APP*/', rd(SRC / 'app.js'))
+           .replace('__APP_VER__', __import__('datetime').date.today().isoformat()))
 
 if DIST.exists():
     for p in DIST.iterdir():

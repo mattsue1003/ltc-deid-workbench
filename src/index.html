@@ -26,6 +26,7 @@
     </ol>
     <div class="top-act">
       <button class="lock" id="btnLock" type="button" title="點我看怎麼查證"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>離線處理</span></button>
+      <button class="btn small ghost" id="btnReport" type="button" title="回報問題或建議">回報問題</button>
       <button class="btn small ghost" id="btnClear" type="button">重新開始</button>
     </div>
   </div>
@@ -122,7 +123,7 @@
 
 <footer>
   <span>長照資料去識別化・純本機處理，不連網、不使用 AI、不儲存資料</span>
-  <span>教材設計｜愛迪樂 鍾孟修 職能治療師</span>
+  <span>遇到問題？<a href="#" id="lnkReport">回報給設計者</a>　教材設計｜愛迪樂 鍾孟修 職能治療師</span>
 </footer>
 
 <div class="selpop hidden" id="selpop"></div>
@@ -142,6 +143,18 @@
     <div class="row"><button class="btn primary" id="btnTest" type="button">連線測試</button><a class="btn" id="btnOffline" href="offline.html" download="長照資料去識別化_離線版.html">下載離線版</a></div>
     <div class="testres" id="testRes"></div>
     <div class="row" style="margin-top:14px"><button class="btn" type="button" onclick="this.closest('dialog').close()">關閉</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgReport">
+  <div class="dlg">
+    <h2>📮 回報問題或建議</h2>
+    <p>漏遮、誤遮、檔案打不開、按了沒反應…都歡迎告訴我，我會盡快修正。</p>
+    <div class="rtypes" id="rTypes" role="radiogroup" aria-label="問題類型"></div>
+    <div class="rwarn"><b>⚠️ 請不要在表單裡填寫真實的個案資料，也不要附上檔案。</b><br>漏遮的問題，用「格式＋假資料」描述就好，例如：「『王小美阿嬤』的『阿嬤』前面兩個字沒被遮」。</div>
+    <p class="note">按「前往填寫」會在新分頁開啟 Google 表單。網頁只會幫你帶入下面這行技術資訊，<b>不含檔名或任何內容</b>：</p>
+    <code class="rtech" id="rTech"></code>
+    <div class="row" style="margin-top:16px"><a class="btn primary" id="btnReportGo" href="#" target="_blank" rel="noopener noreferrer">前往填寫</a><button class="btn" type="button" onclick="this.closest('dialog').close()">取消</button></div>
   </div>
 </dialog>
 
