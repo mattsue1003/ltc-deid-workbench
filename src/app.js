@@ -149,6 +149,8 @@
       if (out !== n.textContent) { n.textContent = out; if (n.localName === 't') n.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); }
     });
   }
+  // Office 檔不能有「資料夾項目」（word/、xl/…）：JSZip 寫檔時會自動加，Word／Excel 會因此判定檔案損毀要求修復
+  function officeZip(z) { for (const k of Object.keys(z.files)) if (z.files[k].dir) delete z.files[k]; return z; }
   const parseXml = s => new DOMParser().parseFromString(s, 'application/xml');
   const serXml = d => new XMLSerializer().serializeToString(d);
   function closestNS(n, ns, local) { for (let p = n.parentNode; p; p = p.parentNode) if (p.namespaceURI === ns && p.localName === local) return p; return null; }
@@ -260,7 +262,7 @@
             zip.file(p, s);
           }
           await scrubOffice(zip, isOn);
-          return { blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), ext: 'docx' };
+          return { blob: await officeZip(zip).generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), ext: 'docx' };
         },
         _zip: zip, _parts: parts, _groups: groups, _xmls: xmls
       };
@@ -503,7 +505,7 @@
             z.file(p, serXml(d));
           }
           await scrubOffice(z, isOn);
-          return { blob: await z.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), ext: 'xlsx' };
+          return { blob: await officeZip(z).generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), ext: 'xlsx' };
         },
         _groups: groups, _ssDoc: ssDoc, _cmt: cmtDocs
       };
@@ -570,7 +572,7 @@
     z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
     const paras = text.split('\n').map(l => `<w:p><w:r><w:rPr><w:rFonts w:ascii="Microsoft JhengHei" w:eastAsia="Microsoft JhengHei" w:hAnsi="Microsoft JhengHei"/></w:rPr><w:t xml:space="preserve">${x(l)}</w:t></w:r></w:p>`).join('');
     z.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${W_NS}"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
-    return z.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    return officeZip(z).generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   }
   const Txt = {
     fromText(text, name) {
