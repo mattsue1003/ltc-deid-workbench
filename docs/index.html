@@ -320,6 +320,20 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
   .exp .fields{grid-template-columns:1fr}
 }
 @media print{.top,.side,footer,.howto{display:none}.work{display:block}.preview{max-height:none;box-shadow:none;border:0}}
+
+/* 黑框編輯：選取、把手、工具列 */
+.box.sel{outline:3px solid var(--orange);outline-offset:1px;cursor:move;z-index:3}
+.box.off{background:rgba(232,85,45,.08);border:2px dashed var(--orange);opacity:.9}
+.box.off.sel{background:rgba(232,85,45,.15)}
+.box .hd{position:absolute;width:16px;height:16px;background:#fff;border:3px solid var(--orange);border-radius:4px;z-index:4}
+.box .hd[data-h=nw]{left:-9px;top:-9px;cursor:nwse-resize}
+.box .hd[data-h=ne]{right:-9px;top:-9px;cursor:nesw-resize}
+.box .hd[data-h=sw]{left:-9px;bottom:-9px;cursor:nesw-resize}
+.box .hd[data-h=se]{right:-9px;bottom:-9px;cursor:nwse-resize}
+.boxbar{position:absolute;transform:translateY(calc(-100% - 8px));display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:6;white-space:nowrap}
+.boxbar button{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700;cursor:pointer}
+.boxbar button:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+@media (pointer:coarse){.box .hd{width:24px;height:24px;left:auto}.box .hd[data-h=nw]{left:-13px;top:-13px}.box .hd[data-h=ne]{right:-13px;top:-13px}.box .hd[data-h=sw]{left:-13px;bottom:-13px}.box .hd[data-h=se]{right:-13px;bottom:-13px}}
 </style>
 </head>
 <body>
@@ -500,7 +514,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     '日月年時分天週次位名人歲床號電話地址生出性男女病診醫院所心這那此其他她它我你們了過著嗎呢吧啊喔哦一二三四五六七八九十兩幾多少上下左右前內外' +
     '來去走看聽吃喝睡坐站跌倒痛藥量協幫陪負責血壓糖尿失智中風骨折開刀手術檢查治療復健評估訪視照顧服務').split(''));
   // 常見與姓氏同字開頭的詞（不是人名）
-  const NOT_NAMES = new Set(['高血壓', '高血糖', '高血脂', '高齡', '林口', '周末', '周邊', '李子', '方便', '方面', '方式', '方法', '方向',
+  const NOT_NAMES = new Set(['葉黃素', '江蘇', '黃金', '林業', '王國', '陳列', '高雄', '蘇聯', '朱紅', '高林', '張羅', '周全', '何方', '方便', '曾經', '高溫', '黃色', '白色', '高血壓', '高血糖', '高血脂', '高齡', '林口', '周末', '周邊', '李子', '方便', '方面', '方式', '方法', '方向',
     '王道', '許多', '何時', '何謂', '於是', '張力', '張開', '黃疸', '白天', '白內障', '江湖', '石頭', '古早', '田地', '金錢', '康復',
     '程度', '高度', '溫度', '陳述', '連續', '連結', '連絡', '包括', '包含', '包尿布', '曾經', '周圍', '黃色', '白色', '藍色', '朱紅',
     '方案', '安全', '馬上', '馬桶', '石膏', '段落', '雷射', '童年', '史料', '簡單', '簡易', '莊園', '秦朝', '孫子', '孫女', '高中',
@@ -540,7 +554,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     '照管中心', '長照中心', '居家護理所', '護理之家', '養護中心', '安養中心', '養護所', '養護之家', '綜合長照機構', '長照機構', '居家服務中心',
     '居服中心', '基金會', '協會', '社區關懷據點', '關懷據點', '巷弄長照站', '文健站', '復健中心', '物理治療所', '職能治療所', '藥局',
     '分院', '教會', '里辦公處', '公所', '小規模多機能', '團體家屋', '家庭托顧', '輔具中心', '輔具資源中心'];
-  const ORG_BOUNDARY = ['單位名稱', '機構名稱', '服務單位', '雇用單位', '僱用單位', '名稱', '轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
+  const ORG_BOUNDARY = ['曾參加', '參加', '參與', '加入', '單位名稱', '機構名稱', '服務單位', '雇用單位', '僱用單位', '名稱', '轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
     '就醫', '就診', '回診', '出院', '住院', '至', '到', '於', '在', '去', '往', '從', '由', '與', '和', '及', '跟', '的', '是', '為', '被',
     '經', '今日', '昨日', '今天', '昨天', '明天', '個案', '案主', '家屬', '目前', '曾在', '曾於', '曾', '並', '且', '、', '／', '/'];
   const ORG_GENERIC = new Set(['地區', '區域', '社區', '附近', '鄰近', '大型', '一般', '公立', '私立', '教學', '當地', '其他', '某', '該',
@@ -549,8 +563,11 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     '小診所', '各大', '附設', '鄰近的', '前一家', '上一家', '同一家']);
 
   const COMMON_SURNAME = new Set('陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏'.split(''));
+  // 名字後面常接的詞（用來判斷名字到哪裡結束）
+  const FOLLOW = /^(互動|互相|一起|一同|兩人|等人|近期|近日|近來|最近|參與|參加|喜歡|今天|今日|目前|表示|自述|主訴|提到|認為|覺得|希望|同意|拒絕|本身|平時|平日|每天|每週|每日|經常|常常|使用|需要|因為|由於|已經|仍然|一直|沒有|不會|可以|能夠|接受|進行|出席|來到|回到|住在|居住|與|和|及|於|在|的|是|有|說|因|由|到|被|把|將|也|都|則|就|才|又|再|曾|仍)/;
+  const PLACE_END = new Set('省市縣區鄉鎮村里路街巷號樓籍科院所部局處系族館站校隊組會社團島山湖河'.split(''));
   const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
-  const COMMON_WORDS = new Set('喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
+  const COMMON_WORDS = new Set('討論 確認 說明 告知 溝通 聯繫 調整 開立 診斷 處方 喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
   const CJK = '\\u4e00-\\u9fff\\u3400-\\u4dbf';
   const NUMC = '0-9０-９一二三四五六七八九十百零〇';
   const isCJK = ch => !!ch && /[一-鿿㐀-䶿]/.test(ch);
@@ -631,8 +648,14 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const titleAt = (t, i, list) => { for (const ti of (list || TITLES)) if (t.startsWith(ti, i)) return ti; return null; };
     const roleBefore = (t, pos) => {
       let j = pos;
-      while (j > 0 && /[\s:：,，(（「『為是]/.test(t[j - 1]) && pos - j < 3) j--;
+      while (j > 0 && /[\s:：,，(（「『為是]/.test(t[j - 1]) && pos - j < 4) j--;
       for (const [w, role] of LABEL_LIST) if (j >= w.length && t.substr(j - w.length, w.length) === w) return { role, label: w, at: j - w.length };
+      // 表單常把欄位名稱拆開排版：「姓　　名」「聯 絡 人」→ 去掉中間空白再比對
+      const raw = t.slice(Math.max(0, j - 24), j);
+      if (/\s/.test(raw)) {
+        const compact = raw.replace(/[ \t\u3000]+/g, '');
+        for (const [w, role] of LABEL_LIST) if (w.length >= 2 && compact.endsWith(w)) return { role, label: w, at: j - 1 };
+      }
       return null;
     };
     // 從 i 起抓中文姓名（姓＋1–2 字）
@@ -648,8 +671,8 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
       // 冠夫姓（李張秀蘭、吳林玉英）：第二字也是常見姓，後面再接兩個字
       if (sl === 1 && len === 3 && SURNAME_SET.has(c1)) {
         const c3 = t[i + 3], c4 = t[i + 4];
-        const endOk = !isCJK(c4) || NAME_STOP.has(c4) || !!titleAt(t, i + 4);
-        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && (endOk || COMMON_SURNAME.has(c1))) len = 4;
+        const endOk = !isCJK(c4) || NAME_STOP.has(c4) || !!titleAt(t, i + 4) || FOLLOW.test(t.slice(i + 4));
+        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && !FOLLOW.test(t.slice(i + 3)) && (endOk || COMMON_SURNAME.has(c1))) len = 4;
       }
       const name = t.substr(i, len);
       if (NOT_NAMES.has(name)) return null;
@@ -659,8 +682,8 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const LABELISH = /(姓名|名字|個案|案主|照顧者|聯絡人|家屬|看護|監護人|代理人|出生|生日|日期|電話|手機|地址|住址|戶籍|身分證|身份證|案號|病歷|編號|卡號|評估者|評估人員|人員|簽名|督導|個管|治療師|護理師|社工|居服員|照服員|填表人|負責人)\s*[:：]?$/;
     const prefixOf = si => {
       if (si === 0) return '';
-      const p = segments[si - 1].trim();
-      if (p.length < 2 || p.length > 8 || /[\d\s]/.test(p) || !LABELISH.test(p)) return '';
+      const p = segments[si - 1].trim().replace(/[ \t\u3000]+/g, '');   // 「姓　　名」→「姓名」
+      if (p.length < 2 || p.length > 8 || /\d/.test(p) || !LABELISH.test(p)) return '';
       return p.replace(/[:：]?$/, '：');
     };
 
@@ -806,6 +829,23 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
         if (nm && AMBIG_SURNAME.has(nm[0]) && !/[\s:：]/.test(t[i - 1] || '')) continue;
         if (nm && nm.length >= 2) notePerson(nm, rb.role, si, i);
       }
+      // 沒有欄位名稱的人名：句首／標點後，「冠夫姓四字」或「姓名＋稱謂、年齡、表示…」
+      const STRONG = /^([（(]\s*\d{2,3}\s*歲|表示|自述|主訴|提到|說|認為|覺得|希望|同意|拒絕|喜歡|參與|參加|今天|今日|近期|近日|於本|本身)/;
+      for (let i = 0; i < t.length; i++) {
+        const prev = t[i - 1];
+        if (i > 0 && isCJK(prev) && !NAME_STOP.has(prev) && !roleBefore(t, i)) continue;
+        if (!COMMON_SURNAME.has(t[i])) continue;
+        const two = SURNAME_SET.has(t[i + 1]);   // 冠夫姓：第二個字也是姓（含較少見的姓，如詹嚴麗珠）
+        for (const len of two ? [4, 3] : [3]) {
+          const nm = t.substr(i, len);
+          if (nm.length < len || [...nm.slice(1)].some(c => !isCJK(c) || NAME_STOP.has(c)) || NOT_NAMES.has(nm) || NOT_NAMES.has(nm.slice(0, 2))) continue;
+          if (PLACE_END.has(nm[len - 1]) || FOLLOW.test(nm.slice(len - 1)) || titleAt(t, i + 1) || titleAt(t, i + len - 1)) continue;
+          const rest = t.slice(i + len), nx = rest[0];
+          const strong = !!titleAt(t, i + len) || STRONG.test(rest);
+          const boundary = !nx || !isCJK(nx) || NAME_STOP.has(nx) || FOLLOW.test(rest);
+          if (strong || (len === 4 && two && boundary)) { notePerson(nm, (roleBefore(t, i) || {}).role || null, si, i); break; }
+        }
+      }
       // 全名＋職稱（王大明醫師、陳美華女士）
       for (let i = 0; i < t.length; i++) {
         const sl = surnameAt(t, i); if (!sl) continue;
@@ -860,7 +900,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     for (const p of [...persons.keys()]) {
       if (p.length !== 3 || !SURNAME_SET.has(p[0]) || !SURNAME_SET.has(p[1])) continue;
       const cnt = new Map();
-      for (const t of segments) { let k = -1; while ((k = t.indexOf(p, k + 1)) >= 0) { const x = t[k + 3]; if (isCJK(x) && !NAME_STOP.has(x) && !titleAt(t, k + 3)) cnt.set(x, (cnt.get(x) || 0) + 1); } }
+      for (const t of segments) { let k = -1; while ((k = t.indexOf(p, k + 1)) >= 0) { const x = t[k + 3]; if (isCJK(x) && !NAME_STOP.has(x) && !titleAt(t, k + 3) && !FOLLOW.test(t.slice(k + 3)) && !PLACE_END.has(x)) cnt.set(x, (cnt.get(x) || 0) + 1); } }
       const best = [...cnt].sort((a, b) => b[1] - a[1])[0];
       if (best && !NOT_NAMES.has(p + best[0])) {
         const full = p + best[0], pp = persons.get(p);
@@ -1187,7 +1227,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     }
   }
   function startDoc(doc) {
-    S.doc = doc; S.over = new Map(); S.view = 'orig'; S.sheet = 0; S.log = []; S.downloaded = false; S.reviewed = false; S.openGrp = null;
+    S.doc = doc; S.sel = null; S.over = new Map(); S.view = 'orig'; S.sheet = 0; S.log = []; S.downloaded = false; S.reviewed = false; S.openGrp = null;
     S.mode = doc.modes ? doc.modes[0].v : null;
     $('#start').classList.add('hidden'); $('#work').classList.remove('hidden');
     $('#kindChip').textContent = doc.kindLabel;
@@ -1698,16 +1738,19 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const labs = [], all = [...FIELD_PII, ...FIELD_STOP].sort((a, b) => b.length - a.length);
     let ls = 0;
     for (const line of text.split('\n')) {
-      const used = new Array(line.length).fill(false);
+      // 「電　　話」這種拆開排版的欄位名稱：去掉空白比對，再對回原位置
+      const pos = []; let cl = '';
+      for (let u = 0; u < line.length; u++) if (!/\s/.test(line[u])) { pos.push(u); cl += line[u]; }
+      const used = new Array(cl.length).fill(false);
       for (const lab of all) {
         let k = -1;
-        while ((k = line.indexOf(lab, k + 1)) >= 0) {
+        while ((k = cl.indexOf(lab, k + 1)) >= 0) {
           if (used.slice(k, k + lab.length).some(Boolean)) continue;
           for (let u = k; u < k + lab.length; u++) used[u] = true;
           // 只認表單上的欄位名稱：前面不是中文字（行首、框線、括號），或後面接冒號；句子裡的「個管師」不算
-          const before = line.slice(0, k).replace(/\s+$/, '').slice(-1), after = line.slice(k + lab.length).replace(/^\s+/, '')[0] || '';
+          const before = cl.slice(0, k).slice(-1), after = cl[k + lab.length] || '';
           if (/[\u4e00-\u9fff，。、；,;]/.test(before) && !/[:：]/.test(after)) continue;
-          const bx = boxes.slice(ls + k, ls + k + lab.length).filter(Boolean);
+          const bx = boxes.slice(ls + pos[k], ls + pos[k + lab.length - 1] + 1).filter(Boolean);
           if (!bx.length) continue;
           const x0 = Math.min(...bx.map(b => b.x)), x1 = Math.max(...bx.map(b => b.x + b.w)), y0 = Math.min(...bx.map(b => b.y)), y1 = Math.max(...bx.map(b => b.y + b.h));
           labs.push({ lab, pii: FIELD_PII.includes(lab), x0, x1, y0, y1, cy: (y0 + y1) / 2, h: y1 - y0 });
@@ -1864,8 +1907,14 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
       doc.pages.forEach((pg, k) => {
         h += `<div class="vwrap"><div class="vpage" data-page="${k}" style="aspect-ratio:${pg.pxW}/${pg.pxH};width:${Math.min(900, pg.pxW)}px"><span class="lbl">第 ${k + 1} 頁${pg.ocr ? '・文字辨識' : ''}</span><img alt="" src="${pg.url}">`;
         for (const b of pageBoxes(pg, view)) {
-          if (b.hidden) continue;
-          h += `<div class="box ${b.manual ? 'manual on' : (b.on ? 'on' : 'off')} k-${b.color}" ${b.id ? `data-id="${escH(b.id)}"` : ''} ${b.manual ? `data-manual="${b.mi}"` : ''} title="${escH(b.title)}" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%"></div>`;
+          const sel = S.sel && S.sel.page === k && S.sel.key === b.key;
+          const pos = `left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%`;
+          h += `<div class="box ${b.manual ? 'manual ' : ''}${b.on ? 'on' : 'off'}${sel ? ' sel' : ''}" data-key="${b.key}" title="${escH(sel ? '' : b.title + '（點一下選取，可調整大小）')}" style="${pos}">` +
+            (sel ? '<i class="hd" data-h="nw"></i><i class="hd" data-h="ne"></i><i class="hd" data-h="sw"></i><i class="hd" data-h="se"></i>' : '') + '</div>';
+          if (sel) h += `<div class="boxbar" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%">` +
+            `<button type="button" data-act="toggle">${b.on ? '取消遮蓋' : '恢復遮蓋'}</button>` +
+            (b.adjusted ? '<button type="button" data-act="reset">還原大小</button>' : '') +
+            (b.manual ? '<button type="button" data-act="del">刪除</button>' : '') + '<button type="button" data-act="close" aria-label="完成">完成</button></div>';
         }
         h += '</div></div>';
       });
@@ -1935,18 +1984,32 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
         if (r) Object.assign(b, r);
       }
     }
-    // 使用者取消勾選的個資，若被欄位整塊遮蓋蓋住，那塊也一起取消（不然取消了黑框還在）
-    const offBoxes = out.filter(b => S.over.get(b.id) === false);
-    const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-    (pg.fields || []).forEach(f => {
-      const id = 'field:' + f.lab;
-      const fb = { x: f.x, y: f.y, w: f.w, h: f.h, id, color: 'custom', title: `「${f.lab}」欄位的填寫區（點一下切換）`, field: true };
-      const linkedOff = S.over.get(id) !== true && offBoxes.some(o => overlap(o, fb) > o.w * o.h * 0.3);
-      fb.on = isOn(id) && !linkedOff;
-      if (linkedOff) fb.hidden = true;
-      out.push(fb);
+    (pg.fields || []).forEach(f => { const id = 'field:' + f.lab; out.push({ x: f.x, y: f.y, w: f.w, h: f.h, id, on: isOn(id), color: 'custom', title: `「${f.lab}」欄位的填寫區` }); });
+    // 同一位置的黑框（文字、多次辨識、欄位遮蓋）合併成一塊，避免「取消了一個，下面還有一個」
+    const area = r => r.w * r.h;
+    const ov = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    let regs = out.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, ids: new Set([b.id]), titles: new Set([b.title]), color: b.color }));
+    for (let merged = true; merged;) {
+      merged = false;
+      for (let i = 0; i < regs.length && !merged; i++) for (let j = i + 1; j < regs.length; j++) {
+        const A = regs[i], B = regs[j];
+        if (ov(A, B) > Math.min(area(A), area(B)) * 0.25) {
+          const x = Math.min(A.x, B.x), y = Math.min(A.y, B.y), x2 = Math.max(A.x + A.w, B.x + B.w), y2 = Math.max(A.y + A.h, B.y + B.h);
+          Object.assign(A, { x, y, w: x2 - x, h: y2 - y }); B.ids.forEach(v => A.ids.add(v)); B.titles.forEach(v => A.titles.add(v));
+          if (A.color !== B.color) A.color = 'custom';
+          regs.splice(j, 1); merged = true; break;
+        }
+      }
+    }
+    pg.regionOn = pg.regionOn || {}; pg.adjust = pg.adjust || {};
+    regs = regs.map(r => {
+      const key = 'r' + [r.x, r.y, r.w, r.h].map(Math.round).join('_');
+      const on = key in pg.regionOn ? pg.regionOn[key] : [...r.ids].some(isOn);
+      const adj = pg.adjust[key];
+      return Object.assign(r, { key, on, adjusted: !!adj, ids: [...r.ids], title: [...r.titles].join('\n') }, adj || {});
     });
-    (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, title: '手動遮蓋（點一下刪除）', color: 'custom' }));
+    out.length = 0; out.push(...regs);
+    (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, on: true, key: 'm' + mi, title: '手動加上的黑框', color: 'custom' }));
     return out;
   }
 
@@ -2100,7 +2163,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
   function renderHowto() {
     const vis = (S.doc.kind === 'pdf' || S.doc.kind === 'image') && S.mode === 'visual';
     const tips = vis
-      ? '<span class="tip">👆 <b>點黑框</b>：取消／恢復遮蓋</span><span class="tip">✋ <b>在頁面上拖曳</b>：補一個黑框（簽名、照片、印章）</span>'
+      ? '<span class="tip">👆 <b>點黑框</b>：選取後可拖曳角落調整大小、移動，或取消遮蓋</span><span class="tip">✋ <b>在空白處拖曳</b>：補一個黑框（簽名、照片、印章）</span>'
       : S.doc.sheets
         ? '<span class="tip">👆 <b>點彩色字</b>：取消／恢復</span><span class="tip">📋 <b>欄位上方選單</b>：整欄指定個資類型</span>'
         : '<span class="tip">👆 <b>點彩色字</b>：取消／恢復遮蔽</span><span class="tip">🖱 <b>選取文字</b>：補上漏掉的</span>';
@@ -2248,6 +2311,8 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     const was = isOn(id);
     const v = val == null ? !was : val;
     S.over.set(id, v);
+    // 黑框版：含這一項的黑框整塊跟著切換
+    if (S.doc && S.doc.pages) for (const pg of S.doc.pages) for (const b of pageBoxes(pg)) if (b.ids && b.ids.includes(id)) pg.regionOn[b.key] = v;
     renderPreview(); renderSide();
     if (!quiet) {
       const en = S.res.entities.get(id);
@@ -2288,13 +2353,15 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
   });
 
   $('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.v; renderModes(); renderPreview(); });
-  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; analyze(); });
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; S.sel = null; analyze(); });
   ['#sNames', '#sCustom', '#sAllow'].forEach(id => $(id).addEventListener('input', analyzeSoon));
   ['#sAge', '#sRef', '#sDate', '#sAddr'].forEach(id => $(id).addEventListener('change', analyze));
 
   $('#preview').addEventListener('click', e => {
     const sb = e.target.closest('[data-sheet]'); if (sb) { S.sheet = +sb.dataset.sheet; renderPreview(); renderExport(); return; }
-    const mk = e.target.closest('mark.m[data-id], .rp[data-id], .box[data-id]');
+    const bar = e.target.closest('.boxbar button');
+    if (bar) { boxAction(bar.dataset.act); return; }
+    const mk = e.target.closest('mark.m[data-id], .rp[data-id]');
     if (mk && !(window.getSelection() + '').trim()) {
       const id = mk.dataset.id;
       // 待判斷的字 → 帶到右邊的卡片
@@ -2302,12 +2369,24 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
       if (q) { q.scrollIntoView({ block: 'center', behavior: 'smooth' }); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); return; }
       toggleEnt(id); return;
     }
-    const mb = e.target.closest('.box[data-manual]');
-    if (mb) {
-      const pg = S.doc.pages[+mb.closest('.vpage').dataset.page]; const [rm] = pg.manual.splice(+mb.dataset.manual, 1);
-      renderPreview(); renderSide();
-      toast('已刪除手動黑框', { undo: () => { pg.manual.push(rm); renderPreview(); renderSide(); } });
+  });
+  // 選取的黑框：切換、還原大小、刪除
+  function selBox() { if (!S.sel) return null; const pg = S.doc.pages[S.sel.page]; return { pg, b: pageBoxes(pg).find(x => x.key === S.sel.key) }; }
+  function boxAction(act) {
+    const r = selBox(); if (!r || !r.b) { S.sel = null; renderPreview(); return; }
+    const { pg, b } = r;
+    if (act === 'toggle') {
+      if (b.manual) { act = 'del'; }
+      else { const was = b.on; pg.regionOn[b.key] = !was; renderPreview(); renderSide(); toast(was ? '已取消這塊遮蓋' : '已恢復遮蓋', { undo: () => { pg.regionOn[b.key] = was; renderPreview(); renderSide(); } }); return; }
     }
+    if (act === 'reset') { const old = pg.adjust[b.key]; delete pg.adjust[b.key]; renderPreview(); toast('已還原成自動判斷的大小', { undo: () => { pg.adjust[b.key] = old; renderPreview(); } }); return; }
+    if (act === 'del') { const [rm] = pg.manual.splice(b.mi, 1); S.sel = null; renderPreview(); renderSide(); toast('已刪除手動黑框', { undo: () => { pg.manual.push(rm); renderPreview(); renderSide(); } }); return; }
+    if (act === 'close') { S.sel = null; renderPreview(); }
+  }
+  document.addEventListener('keydown', e => {
+    if (!S.sel || /input|textarea|select/i.test((e.target.tagName || ''))) return;
+    if (e.key === 'Escape') { S.sel = null; renderPreview(); }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); boxAction('toggle'); }
   });
   $('#warns').addEventListener('click', async e => {
     if (e.target.id !== 'btnReocr') return;
@@ -2401,31 +2480,63 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
     else addName(t, b.dataset.a.slice(5));
   });
 
-  // 黑框版：拖曳新增
+  // 黑框版：空白處拖曳＝新增；點黑框＝選取；拖曳選取的黑框＝移動；拖曳角落＝調整大小
   let drag = null;
   $('#preview').addEventListener('pointerdown', e => {
-    const pgEl = e.target.closest('.vpage'); if (!pgEl || e.target.closest('.box') || e.button !== 0) return;
-    const r = pgEl.getBoundingClientRect();
-    drag = { pgEl, r, x0: e.clientX - r.left, y0: e.clientY - r.top, el: document.createElement('div') };
-    drag.el.className = 'box drawing'; pgEl.appendChild(drag.el);
+    const pgEl = e.target.closest('.vpage'); if (!pgEl || e.button !== 0 || e.target.closest('.boxbar')) return;
+    const page = +pgEl.dataset.page, pg = S.doc.pages[page];
+    const r = pgEl.getBoundingClientRect(), k = pg.pxW / r.width;
+    const px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k;
+    const boxEl = e.target.closest('.box'), hd = e.target.closest('.hd');
+    if (boxEl) {
+      const key = boxEl.dataset.key;
+      if (!(S.sel && S.sel.page === page && S.sel.key === key)) { S.sel = { page, key }; renderPreview(); e.preventDefault(); return; }
+      const b = pageBoxes(pg).find(x => x.key === key); if (!b) return;
+      drag = { mode: hd ? 'resize' : 'move', h: hd && hd.dataset.h, pgEl, pg, k, r, sx: px, sy: py, b0: { x: b.x, y: b.y, w: b.w, h: b.h }, b, el: boxEl, moved: false };
+    } else {
+      if (S.sel) { S.sel = null; renderPreview(); }
+      const el = document.createElement('div'); el.className = 'box drawing'; pgEl.appendChild(el);
+      drag = { mode: 'draw', pgEl, pg, k, r, sx: px, sy: py, el };
+    }
     pgEl.setPointerCapture(e.pointerId); e.preventDefault();
   });
+  const rectOf = (d, px, py) => {
+    const W = d.pg.pxW, H = d.pg.pxH, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    px = cl(px, 0, W); py = cl(py, 0, H);
+    if (d.mode === 'draw') return { x: Math.min(px, d.sx), y: Math.min(py, d.sy), w: Math.abs(px - d.sx), h: Math.abs(py - d.sy) };
+    const b = d.b0, dx = px - d.sx, dy = py - d.sy;
+    if (d.mode === 'move') return { x: cl(b.x + dx, 0, W - b.w), y: cl(b.y + dy, 0, H - b.h), w: b.w, h: b.h };
+    let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
+    if (d.h.includes('w')) x1 = Math.min(x2 - 8, b.x + dx); if (d.h.includes('e')) x2 = Math.max(x1 + 8, x2 + dx);
+    if (d.h.includes('n')) y1 = Math.min(y2 - 8, b.y + dy); if (d.h.includes('s')) y2 = Math.max(y1 + 8, y2 + dy);
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  };
   $('#preview').addEventListener('pointermove', e => {
     if (!drag) return;
-    const x = Math.max(0, Math.min(drag.r.width, e.clientX - drag.r.left)), y = Math.max(0, Math.min(drag.r.height, e.clientY - drag.r.top));
-    Object.assign(drag.el.style, { left: Math.min(x, drag.x0) + 'px', top: Math.min(y, drag.y0) + 'px', width: Math.abs(x - drag.x0) + 'px', height: Math.abs(y - drag.y0) + 'px' });
-    drag.x1 = x; drag.y1 = y;
+    const px = (e.clientX - drag.r.left) * drag.k, py = (e.clientY - drag.r.top) * drag.k;
+    if (Math.abs(px - drag.sx) + Math.abs(py - drag.sy) > 3 * drag.k) drag.moved = true;
+    const rc = rectOf(drag, px, py), W = drag.pg.pxW, H = drag.pg.pxH;
+    Object.assign(drag.el.style, { left: rc.x / W * 100 + '%', top: rc.y / H * 100 + '%', width: rc.w / W * 100 + '%', height: rc.h / H * 100 + '%' });
+    if (drag.mode !== 'draw') { const bar = drag.pgEl.querySelector('.boxbar'); if (bar) bar.style.display = 'none'; }
+    drag.last = rc;
   });
   $('#preview').addEventListener('pointerup', () => {
     if (!drag) return;
-    const d = drag; drag = null; d.el.remove();
-    if (d.x1 == null || Math.abs(d.x1 - d.x0) < 6 || Math.abs(d.y1 - d.y0) < 6) return;
-    const pg = S.doc.pages[+d.pgEl.dataset.page];
-    const k = pg.pxW / d.r.width;
-    const box = { x: Math.min(d.x0, d.x1) * k, y: Math.min(d.y0, d.y1) * k, w: Math.abs(d.x1 - d.x0) * k, h: Math.abs(d.y1 - d.y0) * k };
-    pg.manual.push(box);
-    renderPreview(); renderSide();
-    toast('已加上黑框', { undo: () => { pg.manual.splice(pg.manual.indexOf(box), 1); renderPreview(); renderSide(); } });
+    const d = drag; drag = null;
+    if (d.mode === 'draw') {
+      d.el.remove();
+      if (!d.last || d.last.w < 6 * d.k || d.last.h < 6 * d.k) return;
+      const box = d.last; d.pg.manual.push(box);
+      S.sel = { page: +d.pgEl.dataset.page, key: 'm' + (d.pg.manual.length - 1) };
+      renderPreview(); renderSide();
+      toast('已加上黑框，可拖曳角落調整大小', { undo: () => { d.pg.manual.splice(d.pg.manual.indexOf(box), 1); S.sel = null; renderPreview(); renderSide(); } });
+      return;
+    }
+    if (!d.moved || !d.last) { renderPreview(); return; }
+    const before = d.b.manual ? Object.assign({}, d.pg.manual[d.b.mi]) : d.pg.adjust[d.b.key];
+    if (d.b.manual) Object.assign(d.pg.manual[d.b.mi], d.last); else d.pg.adjust[d.b.key] = d.last;
+    renderPreview();
+    toast(d.mode === 'move' ? '已移動黑框' : '已調整黑框大小', { undo: () => { if (d.b.manual) Object.assign(d.pg.manual[d.b.mi], before); else if (before) d.pg.adjust[d.b.key] = before; else delete d.pg.adjust[d.b.key]; renderPreview(); } });
   });
 
   $('#expPane').addEventListener('change', e => {

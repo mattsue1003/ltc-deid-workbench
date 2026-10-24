@@ -308,3 +308,17 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
   .exp .fields{grid-template-columns:1fr}
 }
 @media print{.top,.side,footer,.howto{display:none}.work{display:block}.preview{max-height:none;box-shadow:none;border:0}}
+
+/* 黑框編輯：選取、把手、工具列 */
+.box.sel{outline:3px solid var(--orange);outline-offset:1px;cursor:move;z-index:3}
+.box.off{background:rgba(232,85,45,.08);border:2px dashed var(--orange);opacity:.9}
+.box.off.sel{background:rgba(232,85,45,.15)}
+.box .hd{position:absolute;width:16px;height:16px;background:#fff;border:3px solid var(--orange);border-radius:4px;z-index:4}
+.box .hd[data-h=nw]{left:-9px;top:-9px;cursor:nwse-resize}
+.box .hd[data-h=ne]{right:-9px;top:-9px;cursor:nesw-resize}
+.box .hd[data-h=sw]{left:-9px;bottom:-9px;cursor:nesw-resize}
+.box .hd[data-h=se]{right:-9px;bottom:-9px;cursor:nwse-resize}
+.boxbar{position:absolute;transform:translateY(calc(-100% - 8px));display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:6;white-space:nowrap}
+.boxbar button{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:7px;padding:4px 10px;font-size:13px;font-weight:700;cursor:pointer}
+.boxbar button:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+@media (pointer:coarse){.box .hd{width:24px;height:24px;left:auto}.box .hd[data-h=nw]{left:-13px;top:-13px}.box .hd[data-h=ne]{right:-13px;top:-13px}.box .hd[data-h=sw]{left:-13px;bottom:-13px}.box .hd[data-h=se]{right:-13px;bottom:-13px}}

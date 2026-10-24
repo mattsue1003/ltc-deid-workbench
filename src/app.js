@@ -116,7 +116,7 @@
     }
   }
   function startDoc(doc) {
-    S.doc = doc; S.over = new Map(); S.view = 'orig'; S.sheet = 0; S.log = []; S.downloaded = false; S.reviewed = false; S.openGrp = null;
+    S.doc = doc; S.sel = null; S.over = new Map(); S.view = 'orig'; S.sheet = 0; S.log = []; S.downloaded = false; S.reviewed = false; S.openGrp = null;
     S.mode = doc.modes ? doc.modes[0].v : null;
     $('#start').classList.add('hidden'); $('#work').classList.remove('hidden');
     $('#kindChip').textContent = doc.kindLabel;
@@ -627,16 +627,19 @@
     const labs = [], all = [...FIELD_PII, ...FIELD_STOP].sort((a, b) => b.length - a.length);
     let ls = 0;
     for (const line of text.split('\n')) {
-      const used = new Array(line.length).fill(false);
+      // 「電　　話」這種拆開排版的欄位名稱：去掉空白比對，再對回原位置
+      const pos = []; let cl = '';
+      for (let u = 0; u < line.length; u++) if (!/\s/.test(line[u])) { pos.push(u); cl += line[u]; }
+      const used = new Array(cl.length).fill(false);
       for (const lab of all) {
         let k = -1;
-        while ((k = line.indexOf(lab, k + 1)) >= 0) {
+        while ((k = cl.indexOf(lab, k + 1)) >= 0) {
           if (used.slice(k, k + lab.length).some(Boolean)) continue;
           for (let u = k; u < k + lab.length; u++) used[u] = true;
           // 只認表單上的欄位名稱：前面不是中文字（行首、框線、括號），或後面接冒號；句子裡的「個管師」不算
-          const before = line.slice(0, k).replace(/\s+$/, '').slice(-1), after = line.slice(k + lab.length).replace(/^\s+/, '')[0] || '';
+          const before = cl.slice(0, k).slice(-1), after = cl[k + lab.length] || '';
           if (/[\u4e00-\u9fff，。、；,;]/.test(before) && !/[:：]/.test(after)) continue;
-          const bx = boxes.slice(ls + k, ls + k + lab.length).filter(Boolean);
+          const bx = boxes.slice(ls + pos[k], ls + pos[k + lab.length - 1] + 1).filter(Boolean);
           if (!bx.length) continue;
           const x0 = Math.min(...bx.map(b => b.x)), x1 = Math.max(...bx.map(b => b.x + b.w)), y0 = Math.min(...bx.map(b => b.y)), y1 = Math.max(...bx.map(b => b.y + b.h));
           labs.push({ lab, pii: FIELD_PII.includes(lab), x0, x1, y0, y1, cy: (y0 + y1) / 2, h: y1 - y0 });
@@ -793,8 +796,14 @@
       doc.pages.forEach((pg, k) => {
         h += `<div class="vwrap"><div class="vpage" data-page="${k}" style="aspect-ratio:${pg.pxW}/${pg.pxH};width:${Math.min(900, pg.pxW)}px"><span class="lbl">第 ${k + 1} 頁${pg.ocr ? '・文字辨識' : ''}</span><img alt="" src="${pg.url}">`;
         for (const b of pageBoxes(pg, view)) {
-          if (b.hidden) continue;
-          h += `<div class="box ${b.manual ? 'manual on' : (b.on ? 'on' : 'off')} k-${b.color}" ${b.id ? `data-id="${escH(b.id)}"` : ''} ${b.manual ? `data-manual="${b.mi}"` : ''} title="${escH(b.title)}" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%"></div>`;
+          const sel = S.sel && S.sel.page === k && S.sel.key === b.key;
+          const pos = `left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%;width:${b.w / pg.pxW * 100}%;height:${b.h / pg.pxH * 100}%`;
+          h += `<div class="box ${b.manual ? 'manual ' : ''}${b.on ? 'on' : 'off'}${sel ? ' sel' : ''}" data-key="${b.key}" title="${escH(sel ? '' : b.title + '（點一下選取，可調整大小）')}" style="${pos}">` +
+            (sel ? '<i class="hd" data-h="nw"></i><i class="hd" data-h="ne"></i><i class="hd" data-h="sw"></i><i class="hd" data-h="se"></i>' : '') + '</div>';
+          if (sel) h += `<div class="boxbar" style="left:${b.x / pg.pxW * 100}%;top:${b.y / pg.pxH * 100}%">` +
+            `<button type="button" data-act="toggle">${b.on ? '取消遮蓋' : '恢復遮蓋'}</button>` +
+            (b.adjusted ? '<button type="button" data-act="reset">還原大小</button>' : '') +
+            (b.manual ? '<button type="button" data-act="del">刪除</button>' : '') + '<button type="button" data-act="close" aria-label="完成">完成</button></div>';
         }
         h += '</div></div>';
       });
@@ -864,18 +873,32 @@
         if (r) Object.assign(b, r);
       }
     }
-    // 使用者取消勾選的個資，若被欄位整塊遮蓋蓋住，那塊也一起取消（不然取消了黑框還在）
-    const offBoxes = out.filter(b => S.over.get(b.id) === false);
-    const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-    (pg.fields || []).forEach(f => {
-      const id = 'field:' + f.lab;
-      const fb = { x: f.x, y: f.y, w: f.w, h: f.h, id, color: 'custom', title: `「${f.lab}」欄位的填寫區（點一下切換）`, field: true };
-      const linkedOff = S.over.get(id) !== true && offBoxes.some(o => overlap(o, fb) > o.w * o.h * 0.3);
-      fb.on = isOn(id) && !linkedOff;
-      if (linkedOff) fb.hidden = true;
-      out.push(fb);
+    (pg.fields || []).forEach(f => { const id = 'field:' + f.lab; out.push({ x: f.x, y: f.y, w: f.w, h: f.h, id, on: isOn(id), color: 'custom', title: `「${f.lab}」欄位的填寫區` }); });
+    // 同一位置的黑框（文字、多次辨識、欄位遮蓋）合併成一塊，避免「取消了一個，下面還有一個」
+    const area = r => r.w * r.h;
+    const ov = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    let regs = out.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, ids: new Set([b.id]), titles: new Set([b.title]), color: b.color }));
+    for (let merged = true; merged;) {
+      merged = false;
+      for (let i = 0; i < regs.length && !merged; i++) for (let j = i + 1; j < regs.length; j++) {
+        const A = regs[i], B = regs[j];
+        if (ov(A, B) > Math.min(area(A), area(B)) * 0.25) {
+          const x = Math.min(A.x, B.x), y = Math.min(A.y, B.y), x2 = Math.max(A.x + A.w, B.x + B.w), y2 = Math.max(A.y + A.h, B.y + B.h);
+          Object.assign(A, { x, y, w: x2 - x, h: y2 - y }); B.ids.forEach(v => A.ids.add(v)); B.titles.forEach(v => A.titles.add(v));
+          if (A.color !== B.color) A.color = 'custom';
+          regs.splice(j, 1); merged = true; break;
+        }
+      }
+    }
+    pg.regionOn = pg.regionOn || {}; pg.adjust = pg.adjust || {};
+    regs = regs.map(r => {
+      const key = 'r' + [r.x, r.y, r.w, r.h].map(Math.round).join('_');
+      const on = key in pg.regionOn ? pg.regionOn[key] : [...r.ids].some(isOn);
+      const adj = pg.adjust[key];
+      return Object.assign(r, { key, on, adjusted: !!adj, ids: [...r.ids], title: [...r.titles].join('\n') }, adj || {});
     });
-    (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, title: '手動遮蓋（點一下刪除）', color: 'custom' }));
+    out.length = 0; out.push(...regs);
+    (pg.manual || []).forEach((m, mi) => out.push({ x: m.x, y: m.y, w: m.w, h: m.h, manual: true, mi, on: true, key: 'm' + mi, title: '手動加上的黑框', color: 'custom' }));
     return out;
   }
 
@@ -1029,7 +1052,7 @@
   function renderHowto() {
     const vis = (S.doc.kind === 'pdf' || S.doc.kind === 'image') && S.mode === 'visual';
     const tips = vis
-      ? '<span class="tip">👆 <b>點黑框</b>：取消／恢復遮蓋</span><span class="tip">✋ <b>在頁面上拖曳</b>：補一個黑框（簽名、照片、印章）</span>'
+      ? '<span class="tip">👆 <b>點黑框</b>：選取後可拖曳角落調整大小、移動，或取消遮蓋</span><span class="tip">✋ <b>在空白處拖曳</b>：補一個黑框（簽名、照片、印章）</span>'
       : S.doc.sheets
         ? '<span class="tip">👆 <b>點彩色字</b>：取消／恢復</span><span class="tip">📋 <b>欄位上方選單</b>：整欄指定個資類型</span>'
         : '<span class="tip">👆 <b>點彩色字</b>：取消／恢復遮蔽</span><span class="tip">🖱 <b>選取文字</b>：補上漏掉的</span>';
@@ -1177,6 +1200,8 @@
     const was = isOn(id);
     const v = val == null ? !was : val;
     S.over.set(id, v);
+    // 黑框版：含這一項的黑框整塊跟著切換
+    if (S.doc && S.doc.pages) for (const pg of S.doc.pages) for (const b of pageBoxes(pg)) if (b.ids && b.ids.includes(id)) pg.regionOn[b.key] = v;
     renderPreview(); renderSide();
     if (!quiet) {
       const en = S.res.entities.get(id);
@@ -1217,13 +1242,15 @@
   });
 
   $('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.v; renderModes(); renderPreview(); });
-  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; analyze(); });
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; S.sel = null; analyze(); });
   ['#sNames', '#sCustom', '#sAllow'].forEach(id => $(id).addEventListener('input', analyzeSoon));
   ['#sAge', '#sRef', '#sDate', '#sAddr'].forEach(id => $(id).addEventListener('change', analyze));
 
   $('#preview').addEventListener('click', e => {
     const sb = e.target.closest('[data-sheet]'); if (sb) { S.sheet = +sb.dataset.sheet; renderPreview(); renderExport(); return; }
-    const mk = e.target.closest('mark.m[data-id], .rp[data-id], .box[data-id]');
+    const bar = e.target.closest('.boxbar button');
+    if (bar) { boxAction(bar.dataset.act); return; }
+    const mk = e.target.closest('mark.m[data-id], .rp[data-id]');
     if (mk && !(window.getSelection() + '').trim()) {
       const id = mk.dataset.id;
       // 待判斷的字 → 帶到右邊的卡片
@@ -1231,12 +1258,24 @@
       if (q) { q.scrollIntoView({ block: 'center', behavior: 'smooth' }); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); return; }
       toggleEnt(id); return;
     }
-    const mb = e.target.closest('.box[data-manual]');
-    if (mb) {
-      const pg = S.doc.pages[+mb.closest('.vpage').dataset.page]; const [rm] = pg.manual.splice(+mb.dataset.manual, 1);
-      renderPreview(); renderSide();
-      toast('已刪除手動黑框', { undo: () => { pg.manual.push(rm); renderPreview(); renderSide(); } });
+  });
+  // 選取的黑框：切換、還原大小、刪除
+  function selBox() { if (!S.sel) return null; const pg = S.doc.pages[S.sel.page]; return { pg, b: pageBoxes(pg).find(x => x.key === S.sel.key) }; }
+  function boxAction(act) {
+    const r = selBox(); if (!r || !r.b) { S.sel = null; renderPreview(); return; }
+    const { pg, b } = r;
+    if (act === 'toggle') {
+      if (b.manual) { act = 'del'; }
+      else { const was = b.on; pg.regionOn[b.key] = !was; renderPreview(); renderSide(); toast(was ? '已取消這塊遮蓋' : '已恢復遮蓋', { undo: () => { pg.regionOn[b.key] = was; renderPreview(); renderSide(); } }); return; }
     }
+    if (act === 'reset') { const old = pg.adjust[b.key]; delete pg.adjust[b.key]; renderPreview(); toast('已還原成自動判斷的大小', { undo: () => { pg.adjust[b.key] = old; renderPreview(); } }); return; }
+    if (act === 'del') { const [rm] = pg.manual.splice(b.mi, 1); S.sel = null; renderPreview(); renderSide(); toast('已刪除手動黑框', { undo: () => { pg.manual.push(rm); renderPreview(); renderSide(); } }); return; }
+    if (act === 'close') { S.sel = null; renderPreview(); }
+  }
+  document.addEventListener('keydown', e => {
+    if (!S.sel || /input|textarea|select/i.test((e.target.tagName || ''))) return;
+    if (e.key === 'Escape') { S.sel = null; renderPreview(); }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); boxAction('toggle'); }
   });
   $('#warns').addEventListener('click', async e => {
     if (e.target.id !== 'btnReocr') return;
@@ -1330,31 +1369,63 @@
     else addName(t, b.dataset.a.slice(5));
   });
 
-  // 黑框版：拖曳新增
+  // 黑框版：空白處拖曳＝新增；點黑框＝選取；拖曳選取的黑框＝移動；拖曳角落＝調整大小
   let drag = null;
   $('#preview').addEventListener('pointerdown', e => {
-    const pgEl = e.target.closest('.vpage'); if (!pgEl || e.target.closest('.box') || e.button !== 0) return;
-    const r = pgEl.getBoundingClientRect();
-    drag = { pgEl, r, x0: e.clientX - r.left, y0: e.clientY - r.top, el: document.createElement('div') };
-    drag.el.className = 'box drawing'; pgEl.appendChild(drag.el);
+    const pgEl = e.target.closest('.vpage'); if (!pgEl || e.button !== 0 || e.target.closest('.boxbar')) return;
+    const page = +pgEl.dataset.page, pg = S.doc.pages[page];
+    const r = pgEl.getBoundingClientRect(), k = pg.pxW / r.width;
+    const px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k;
+    const boxEl = e.target.closest('.box'), hd = e.target.closest('.hd');
+    if (boxEl) {
+      const key = boxEl.dataset.key;
+      if (!(S.sel && S.sel.page === page && S.sel.key === key)) { S.sel = { page, key }; renderPreview(); e.preventDefault(); return; }
+      const b = pageBoxes(pg).find(x => x.key === key); if (!b) return;
+      drag = { mode: hd ? 'resize' : 'move', h: hd && hd.dataset.h, pgEl, pg, k, r, sx: px, sy: py, b0: { x: b.x, y: b.y, w: b.w, h: b.h }, b, el: boxEl, moved: false };
+    } else {
+      if (S.sel) { S.sel = null; renderPreview(); }
+      const el = document.createElement('div'); el.className = 'box drawing'; pgEl.appendChild(el);
+      drag = { mode: 'draw', pgEl, pg, k, r, sx: px, sy: py, el };
+    }
     pgEl.setPointerCapture(e.pointerId); e.preventDefault();
   });
+  const rectOf = (d, px, py) => {
+    const W = d.pg.pxW, H = d.pg.pxH, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    px = cl(px, 0, W); py = cl(py, 0, H);
+    if (d.mode === 'draw') return { x: Math.min(px, d.sx), y: Math.min(py, d.sy), w: Math.abs(px - d.sx), h: Math.abs(py - d.sy) };
+    const b = d.b0, dx = px - d.sx, dy = py - d.sy;
+    if (d.mode === 'move') return { x: cl(b.x + dx, 0, W - b.w), y: cl(b.y + dy, 0, H - b.h), w: b.w, h: b.h };
+    let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
+    if (d.h.includes('w')) x1 = Math.min(x2 - 8, b.x + dx); if (d.h.includes('e')) x2 = Math.max(x1 + 8, x2 + dx);
+    if (d.h.includes('n')) y1 = Math.min(y2 - 8, b.y + dy); if (d.h.includes('s')) y2 = Math.max(y1 + 8, y2 + dy);
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  };
   $('#preview').addEventListener('pointermove', e => {
     if (!drag) return;
-    const x = Math.max(0, Math.min(drag.r.width, e.clientX - drag.r.left)), y = Math.max(0, Math.min(drag.r.height, e.clientY - drag.r.top));
-    Object.assign(drag.el.style, { left: Math.min(x, drag.x0) + 'px', top: Math.min(y, drag.y0) + 'px', width: Math.abs(x - drag.x0) + 'px', height: Math.abs(y - drag.y0) + 'px' });
-    drag.x1 = x; drag.y1 = y;
+    const px = (e.clientX - drag.r.left) * drag.k, py = (e.clientY - drag.r.top) * drag.k;
+    if (Math.abs(px - drag.sx) + Math.abs(py - drag.sy) > 3 * drag.k) drag.moved = true;
+    const rc = rectOf(drag, px, py), W = drag.pg.pxW, H = drag.pg.pxH;
+    Object.assign(drag.el.style, { left: rc.x / W * 100 + '%', top: rc.y / H * 100 + '%', width: rc.w / W * 100 + '%', height: rc.h / H * 100 + '%' });
+    if (drag.mode !== 'draw') { const bar = drag.pgEl.querySelector('.boxbar'); if (bar) bar.style.display = 'none'; }
+    drag.last = rc;
   });
   $('#preview').addEventListener('pointerup', () => {
     if (!drag) return;
-    const d = drag; drag = null; d.el.remove();
-    if (d.x1 == null || Math.abs(d.x1 - d.x0) < 6 || Math.abs(d.y1 - d.y0) < 6) return;
-    const pg = S.doc.pages[+d.pgEl.dataset.page];
-    const k = pg.pxW / d.r.width;
-    const box = { x: Math.min(d.x0, d.x1) * k, y: Math.min(d.y0, d.y1) * k, w: Math.abs(d.x1 - d.x0) * k, h: Math.abs(d.y1 - d.y0) * k };
-    pg.manual.push(box);
-    renderPreview(); renderSide();
-    toast('已加上黑框', { undo: () => { pg.manual.splice(pg.manual.indexOf(box), 1); renderPreview(); renderSide(); } });
+    const d = drag; drag = null;
+    if (d.mode === 'draw') {
+      d.el.remove();
+      if (!d.last || d.last.w < 6 * d.k || d.last.h < 6 * d.k) return;
+      const box = d.last; d.pg.manual.push(box);
+      S.sel = { page: +d.pgEl.dataset.page, key: 'm' + (d.pg.manual.length - 1) };
+      renderPreview(); renderSide();
+      toast('已加上黑框，可拖曳角落調整大小', { undo: () => { d.pg.manual.splice(d.pg.manual.indexOf(box), 1); S.sel = null; renderPreview(); renderSide(); } });
+      return;
+    }
+    if (!d.moved || !d.last) { renderPreview(); return; }
+    const before = d.b.manual ? Object.assign({}, d.pg.manual[d.b.mi]) : d.pg.adjust[d.b.key];
+    if (d.b.manual) Object.assign(d.pg.manual[d.b.mi], d.last); else d.pg.adjust[d.b.key] = d.last;
+    renderPreview();
+    toast(d.mode === 'move' ? '已移動黑框' : '已調整黑框大小', { undo: () => { if (d.b.manual) Object.assign(d.pg.manual[d.b.mi], before); else if (before) d.pg.adjust[d.b.key] = before; else delete d.pg.adjust[d.b.key]; renderPreview(); } });
   });
 
   $('#expPane').addEventListener('change', e => {

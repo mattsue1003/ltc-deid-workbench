@@ -42,7 +42,7 @@
     '日月年時分天週次位名人歲床號電話地址生出性男女病診醫院所心這那此其他她它我你們了過著嗎呢吧啊喔哦一二三四五六七八九十兩幾多少上下左右前內外' +
     '來去走看聽吃喝睡坐站跌倒痛藥量協幫陪負責血壓糖尿失智中風骨折開刀手術檢查治療復健評估訪視照顧服務').split(''));
   // 常見與姓氏同字開頭的詞（不是人名）
-  const NOT_NAMES = new Set(['高血壓', '高血糖', '高血脂', '高齡', '林口', '周末', '周邊', '李子', '方便', '方面', '方式', '方法', '方向',
+  const NOT_NAMES = new Set(['葉黃素', '江蘇', '黃金', '林業', '王國', '陳列', '高雄', '蘇聯', '朱紅', '高林', '張羅', '周全', '何方', '方便', '曾經', '高溫', '黃色', '白色', '高血壓', '高血糖', '高血脂', '高齡', '林口', '周末', '周邊', '李子', '方便', '方面', '方式', '方法', '方向',
     '王道', '許多', '何時', '何謂', '於是', '張力', '張開', '黃疸', '白天', '白內障', '江湖', '石頭', '古早', '田地', '金錢', '康復',
     '程度', '高度', '溫度', '陳述', '連續', '連結', '連絡', '包括', '包含', '包尿布', '曾經', '周圍', '黃色', '白色', '藍色', '朱紅',
     '方案', '安全', '馬上', '馬桶', '石膏', '段落', '雷射', '童年', '史料', '簡單', '簡易', '莊園', '秦朝', '孫子', '孫女', '高中',
@@ -82,7 +82,7 @@
     '照管中心', '長照中心', '居家護理所', '護理之家', '養護中心', '安養中心', '養護所', '養護之家', '綜合長照機構', '長照機構', '居家服務中心',
     '居服中心', '基金會', '協會', '社區關懷據點', '關懷據點', '巷弄長照站', '文健站', '復健中心', '物理治療所', '職能治療所', '藥局',
     '分院', '教會', '里辦公處', '公所', '小規模多機能', '團體家屋', '家庭托顧', '輔具中心', '輔具資源中心'];
-  const ORG_BOUNDARY = ['單位名稱', '機構名稱', '服務單位', '雇用單位', '僱用單位', '名稱', '轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
+  const ORG_BOUNDARY = ['曾參加', '參加', '參與', '加入', '單位名稱', '機構名稱', '服務單位', '雇用單位', '僱用單位', '名稱', '轉介至', '轉介到', '轉介', '轉至', '轉到', '送至', '送到', '送往', '前往', '入住', '住進', '住在', '回到', '返回',
     '就醫', '就診', '回診', '出院', '住院', '至', '到', '於', '在', '去', '往', '從', '由', '與', '和', '及', '跟', '的', '是', '為', '被',
     '經', '今日', '昨日', '今天', '昨天', '明天', '個案', '案主', '家屬', '目前', '曾在', '曾於', '曾', '並', '且', '、', '／', '/'];
   const ORG_GENERIC = new Set(['地區', '區域', '社區', '附近', '鄰近', '大型', '一般', '公立', '私立', '教學', '當地', '其他', '某', '該',
@@ -91,8 +91,11 @@
     '小診所', '各大', '附設', '鄰近的', '前一家', '上一家', '同一家']);
 
   const COMMON_SURNAME = new Set('陳林黃張李王吳劉蔡楊許鄭謝郭洪曾邱廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏'.split(''));
+  // 名字後面常接的詞（用來判斷名字到哪裡結束）
+  const FOLLOW = /^(互動|互相|一起|一同|兩人|等人|近期|近日|近來|最近|參與|參加|喜歡|今天|今日|目前|表示|自述|主訴|提到|認為|覺得|希望|同意|拒絕|本身|平時|平日|每天|每週|每日|經常|常常|使用|需要|因為|由於|已經|仍然|一直|沒有|不會|可以|能夠|接受|進行|出席|來到|回到|住在|居住|與|和|及|於|在|的|是|有|說|因|由|到|被|把|將|也|都|則|就|才|又|再|曾|仍)/;
+  const PLACE_END = new Set('省市縣區鄉鎮村里路街巷號樓籍科院所部局處系族館站校隊組會社團島山湖河'.split(''));
   const AMBIG_SURNAME = new Set('曾連何於尤方高白石金馬古田包房花冷易任應利費甘雷毛史常向和左右'.split(''));
-  const COMMON_WORDS = new Set('喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
+  const COMMON_WORDS = new Set('討論 確認 說明 告知 溝通 聯繫 調整 開立 診斷 處方 喘息 交通 服務 項目 頻率 備註 關係 性別 年齡 電話 地址 日期 診斷 備註 狀況 情形 練習 訓練 評估 負責 處理 聯繫 聯絡 到宅 前往 早上 早餐 午餐 晚餐 陪伴 陪同 帶領 進行 執行 提供 安排 申請 轉介 追蹤 觀察 測量 量測 記錄 紀錄 希望 協助 指導 訓練 建議 需要 使用 表示 自述 自行 情緒 回診 外出 獨居 同住 陪同 照顧 返家 主訴 狀況 身體 精神 平時 晚上 白天 本身 意願 配合 反應 擔心 認為 覺得 提到 告知 拒絕 同意 經濟 負擔 皆可 均可 尚可 能力 功能 部分 部份 完全 偶爾 經常 常常 有時 需要 沒有 無法 可以 已經 仍然 依然 還是 只有 稍微 非常 相當 較為 比較 狀態 情形 情況 意識 清楚 清醒 穩定 良好 不佳 正常 異常 本人 自己 親自 兩人 一同 一起 共同 分別 輪流 固定 定期 每天 每週 每月 平日 假日 週末 早上 中午 下午 傍晚 夜間 半夜 凌晨 最近 近期 近日 先前 之前 以前 過去 後來 之後 以後 未來 日後 現在 現今 如今 當時 當天 隔天 簽名 簽章 簽收 簽署 填寫 確認 核章 簽到'.split(' '));
   const CJK = '\\u4e00-\\u9fff\\u3400-\\u4dbf';
   const NUMC = '0-9０-９一二三四五六七八九十百零〇';
   const isCJK = ch => !!ch && /[一-鿿㐀-䶿]/.test(ch);
@@ -173,8 +176,14 @@
     const titleAt = (t, i, list) => { for (const ti of (list || TITLES)) if (t.startsWith(ti, i)) return ti; return null; };
     const roleBefore = (t, pos) => {
       let j = pos;
-      while (j > 0 && /[\s:：,，(（「『為是]/.test(t[j - 1]) && pos - j < 3) j--;
+      while (j > 0 && /[\s:：,，(（「『為是]/.test(t[j - 1]) && pos - j < 4) j--;
       for (const [w, role] of LABEL_LIST) if (j >= w.length && t.substr(j - w.length, w.length) === w) return { role, label: w, at: j - w.length };
+      // 表單常把欄位名稱拆開排版：「姓　　名」「聯 絡 人」→ 去掉中間空白再比對
+      const raw = t.slice(Math.max(0, j - 24), j);
+      if (/\s/.test(raw)) {
+        const compact = raw.replace(/[ \t\u3000]+/g, '');
+        for (const [w, role] of LABEL_LIST) if (w.length >= 2 && compact.endsWith(w)) return { role, label: w, at: j - 1 };
+      }
       return null;
     };
     // 從 i 起抓中文姓名（姓＋1–2 字）
@@ -190,8 +199,8 @@
       // 冠夫姓（李張秀蘭、吳林玉英）：第二字也是常見姓，後面再接兩個字
       if (sl === 1 && len === 3 && SURNAME_SET.has(c1)) {
         const c3 = t[i + 3], c4 = t[i + 4];
-        const endOk = !isCJK(c4) || NAME_STOP.has(c4) || !!titleAt(t, i + 4);
-        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && (endOk || COMMON_SURNAME.has(c1))) len = 4;
+        const endOk = !isCJK(c4) || NAME_STOP.has(c4) || !!titleAt(t, i + 4) || FOLLOW.test(t.slice(i + 4));
+        if (isCJK(c3) && !NAME_STOP.has(c3) && !titleAt(t, i + 3) && !FOLLOW.test(t.slice(i + 3)) && (endOk || COMMON_SURNAME.has(c1))) len = 4;
       }
       const name = t.substr(i, len);
       if (NOT_NAMES.has(name)) return null;
@@ -201,8 +210,8 @@
     const LABELISH = /(姓名|名字|個案|案主|照顧者|聯絡人|家屬|看護|監護人|代理人|出生|生日|日期|電話|手機|地址|住址|戶籍|身分證|身份證|案號|病歷|編號|卡號|評估者|評估人員|人員|簽名|督導|個管|治療師|護理師|社工|居服員|照服員|填表人|負責人)\s*[:：]?$/;
     const prefixOf = si => {
       if (si === 0) return '';
-      const p = segments[si - 1].trim();
-      if (p.length < 2 || p.length > 8 || /[\d\s]/.test(p) || !LABELISH.test(p)) return '';
+      const p = segments[si - 1].trim().replace(/[ \t\u3000]+/g, '');   // 「姓　　名」→「姓名」
+      if (p.length < 2 || p.length > 8 || /\d/.test(p) || !LABELISH.test(p)) return '';
       return p.replace(/[:：]?$/, '：');
     };
 
@@ -348,6 +357,23 @@
         if (nm && AMBIG_SURNAME.has(nm[0]) && !/[\s:：]/.test(t[i - 1] || '')) continue;
         if (nm && nm.length >= 2) notePerson(nm, rb.role, si, i);
       }
+      // 沒有欄位名稱的人名：句首／標點後，「冠夫姓四字」或「姓名＋稱謂、年齡、表示…」
+      const STRONG = /^([（(]\s*\d{2,3}\s*歲|表示|自述|主訴|提到|說|認為|覺得|希望|同意|拒絕|喜歡|參與|參加|今天|今日|近期|近日|於本|本身)/;
+      for (let i = 0; i < t.length; i++) {
+        const prev = t[i - 1];
+        if (i > 0 && isCJK(prev) && !NAME_STOP.has(prev) && !roleBefore(t, i)) continue;
+        if (!COMMON_SURNAME.has(t[i])) continue;
+        const two = SURNAME_SET.has(t[i + 1]);   // 冠夫姓：第二個字也是姓（含較少見的姓，如詹嚴麗珠）
+        for (const len of two ? [4, 3] : [3]) {
+          const nm = t.substr(i, len);
+          if (nm.length < len || [...nm.slice(1)].some(c => !isCJK(c) || NAME_STOP.has(c)) || NOT_NAMES.has(nm) || NOT_NAMES.has(nm.slice(0, 2))) continue;
+          if (PLACE_END.has(nm[len - 1]) || FOLLOW.test(nm.slice(len - 1)) || titleAt(t, i + 1) || titleAt(t, i + len - 1)) continue;
+          const rest = t.slice(i + len), nx = rest[0];
+          const strong = !!titleAt(t, i + len) || STRONG.test(rest);
+          const boundary = !nx || !isCJK(nx) || NAME_STOP.has(nx) || FOLLOW.test(rest);
+          if (strong || (len === 4 && two && boundary)) { notePerson(nm, (roleBefore(t, i) || {}).role || null, si, i); break; }
+        }
+      }
       // 全名＋職稱（王大明醫師、陳美華女士）
       for (let i = 0; i < t.length; i++) {
         const sl = surnameAt(t, i); if (!sl) continue;
@@ -402,7 +428,7 @@
     for (const p of [...persons.keys()]) {
       if (p.length !== 3 || !SURNAME_SET.has(p[0]) || !SURNAME_SET.has(p[1])) continue;
       const cnt = new Map();
-      for (const t of segments) { let k = -1; while ((k = t.indexOf(p, k + 1)) >= 0) { const x = t[k + 3]; if (isCJK(x) && !NAME_STOP.has(x) && !titleAt(t, k + 3)) cnt.set(x, (cnt.get(x) || 0) + 1); } }
+      for (const t of segments) { let k = -1; while ((k = t.indexOf(p, k + 1)) >= 0) { const x = t[k + 3]; if (isCJK(x) && !NAME_STOP.has(x) && !titleAt(t, k + 3) && !FOLLOW.test(t.slice(k + 3)) && !PLACE_END.has(x)) cnt.set(x, (cnt.get(x) || 0) + 1); } }
       const best = [...cnt].sort((a, b) => b[1] - a[1])[0];
       if (best && !NOT_NAMES.has(p + best[0])) {
         const full = p + best[0], pp = persons.get(p);
