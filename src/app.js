@@ -10,7 +10,7 @@
 
   // ───────── 程式庫（同網站或內嵌，不連外） ─────────
   window.__LIBDATA = window.__LIBDATA || {};
-  const LIBS = { jszip: 'lib/jszip.min.js', pdf: 'lib/pdf.min.js', pdfworker: 'lib/pdf-worker.js', cmaps: 'lib/cmaps.js', tess: 'lib/tesseract.min.js', tessworker: 'lib/tess-worker.js', tesscore: 'lib/tess-core.js', tesslang: 'lib/tess-chi_tra.js' };
+  const LIBS = { jszip: 'lib/jszip.min.js', docxview: 'lib/docx-preview.js', pdf: 'lib/pdf.min.js', pdfworker: 'lib/pdf-worker.js', cmaps: 'lib/cmaps.js', tess: 'lib/tesseract.min.js', tessworker: 'lib/tess-worker.js', tesscore: 'lib/tess-core.js', tesslang: 'lib/tess-chi_tra.js' };
   const libP = {};
   function loadLib(name) {
     if (libP[name]) return libP[name];
@@ -26,7 +26,7 @@
   const blobURL = (txt, type) => URL.createObjectURL(new Blob([txt], { type: type || 'text/javascript' }));
 
   // ───────── 狀態 ─────────
-  const S = { doc: null, res: null, over: new Map(), repOver: new Map(), nameMode: 'code', view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
+  const S = { doc: null, res: null, over: new Map(), repOver: new Map(), nameMode: 'code', layout: 'word', view: 'orig', mode: null, tab: 'list', sheet: 0, reviewed: false, urls: [] };
 
   // ───────── 小工具 ─────────
   let toastEl = null, toastT = 0;
@@ -305,8 +305,8 @@
       if (tracked) warns.push({ t: `文件含「追蹤修訂」紀錄 ${tracked} 處，刪除過的文字也會一起處理；審閱者姓名會改成「審閱者」。建議原檔先「接受所有修訂」。` });
       if (comments) warns.push({ t: `文件含 ${comments} 則註解，內容會一起處理，作者姓名會移除。` });
       const PART_LABEL = p => /header/.test(p) ? '頁首' : /footer/.test(p) ? '頁尾' : /footnotes/.test(p) ? '註腳' : /endnotes/.test(p) ? '章節附註' : /comments/.test(p) ? '註解' : p === 'chart' ? '圖表' : '';
-      return {
-        kind: 'docx', kindLabel: 'Word', name: file.name, segments, warns,
+      const d = {
+        kind: 'docx', kindLabel: 'Word', name: file.name, segments, warns, file,
         renderPreview(view) {
           let h = '', last = '';
           for (const pr of paras) {
@@ -346,6 +346,8 @@
         },
         _zip: zip, _parts: parts, _groups: groups, _xmls: xmls, _charts: charts.docs
       };
+      d.renderWord = wordPreview(d, file);
+      return d;
     }
   };
 
@@ -1146,7 +1148,8 @@
         ? '<span class="tip">👆 <b>點彩色字</b>：取消／恢復</span><span class="tip">📋 <b>欄位上方選單</b>：整欄指定個資類型</span>'
         : '<span class="tip">👆 <b>點彩色字</b>：取消／恢復遮蔽</span><span class="tip">🖱 <b>選取文字</b>：補上漏掉的</span>';
     const legend = ['name', 'idno', 'phone', 'date', 'address', 'org'].map(c => { const i = Deid.CAT_INFO[c]; return `<span class="lg-chip k-${i.color}">${i.label.replace('／居留證', '')}</span>`; }).join('');
-    $('#howto').innerHTML = tips + `<span class="legend">${legend}</span>`;
+    const lay = S.doc.renderWord ? `<span class="tip lay">預覽：<button type="button" data-lay="word" class="${S.layout === 'word' ? 'on' : ''}">Word 版面</button><button type="button" data-lay="text" class="${S.layout === 'text' ? 'on' : ''}">純文字</button></span>` : '';
+    $('#howto').innerHTML = tips + lay + `<span class="legend">${legend}</span>`;
   }
   function renderWarns() {
     $('#warns').innerHTML = (S.doc.warns || []).map(w => `<div class="warn ${w.bad ? 'bad' : w.soft ? 'soft' : ''}">${w.bad ? '⚠️ ' : (w.soft ? 'ℹ️ ' : '⚠️ ')}${escH(w.t)}</div>`).join('') +
@@ -1160,8 +1163,100 @@
   }
   function renderPreview() {
     const pv = $('#preview'); const st = pv.scrollTop;
-    pv.innerHTML = S.doc.renderPreview(S.view);
+    if (!(S.doc.renderWord && S.layout === 'word' && S.doc.renderWord(pv, S.view))) pv.innerHTML = S.doc.renderPreview(S.view);
     pv.scrollTop = st;
+  }
+
+  // ───────── Word 版面預覽：用 docx-preview 在瀏覽器裡排出 Word 畫面，再把標記套到對應的段落上 ─────────
+  const normT = t => t.replace(/\s+/g, '');
+  let grayURL = '';
+  function grayDataURL() {
+    if (grayURL) return grayURL;
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d'); g.fillStyle = '#9aa5a8'; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(8, 8); g.lineTo(56, 56); g.moveTo(56, 8); g.lineTo(8, 56); g.stroke();
+    return (grayURL = c.toDataURL());
+  }
+  function wordPreview(doc, file) {
+    let tpl = null, state = 'idle';
+    async function build() {
+      state = 'busy';
+      try {
+        await loadLib('jszip'); await loadLib('docxview');
+        const box = document.createElement('div'); box.className = 'wordview';
+        const styles = document.createElement('div');
+        await docx.renderAsync(await file.arrayBuffer(), box, styles, { className: 'docx', inWrapper: true, breakPages: true, ignoreLastRenderedPageBreak: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, renderEndnotes: true, renderComments: false, useBase64URL: true, experimental: false });
+        box.prepend(...styles.childNodes);
+        tpl = box; state = 'ready';
+      } catch (e) { console.warn('Word 版面預覽失敗，改用純文字', e); state = 'fail'; }
+      if (S.doc === doc) renderPreview();
+    }
+    return function render(pv, view) {
+      if (state === 'idle') build();
+      if (state !== 'ready') return false;
+      const box = tpl.cloneNode(true);
+      box.classList.toggle('after', view === 'after');
+      // 段落文字 → 對應的 segment（同樣文字依序配對；頁首頁尾重複出現時沿用最後一個）
+      const queue = new Map();
+      doc.segments.forEach((t, i) => { const k = normT(t); if (!k) return; if (!queue.has(k)) queue.set(k, []); queue.get(k).push(i); });
+      const last = new Map();
+      const paras = [...box.querySelectorAll('p')].filter(p => !p.querySelector('p'));
+      for (const p of paras) {
+        const k = normT(p.textContent); if (!k) continue;
+        const q = queue.get(k); let si;
+        if (q && q.length) { si = q.shift(); last.set(k, si); } else if (last.has(k)) si = last.get(k); else continue;
+        markPara(p, si, view);
+      }
+      if (view === 'after' && $('#sImg').value === 'gray') box.querySelectorAll('img').forEach(im => { im.src = grayDataURL(); im.style.objectFit = 'fill'; });
+      pv.innerHTML = ''; pv.appendChild(box);
+      const sec = box.querySelector('section.docx');
+      if (sec) { const w = sec.getBoundingClientRect().width + 40; box.style.zoom = Math.min(1, (pv.clientWidth - 8) / w).toFixed(3); }
+      return true;
+    };
+  }
+  // 把一個段落裡第 s～e 個字（segment 座標）包成標記或換成代號
+  function markPara(p, si, view) {
+    const text = S.doc.segments[si];
+    const nodes = []; const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); let n;
+    while ((n = tw.nextNode())) nodes.push(n);
+    const dom = []; nodes.forEach(nd => { for (let k = 0; k < nd.data.length; k++) dom.push([nd, k]); });
+    const map = new Array(text.length); let j = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (/\s/.test(c)) { while (j < dom.length && /\s/.test(dom[j][0].data[dom[j][1]]) && dom[j][0].data[dom[j][1]] !== c) j++; }
+      let jj = j; while (jj < dom.length && dom[jj][0].data[dom[jj][1]] !== c) jj++;
+      if (jj < dom.length) { map[i] = dom[jj]; j = jj + 1; } else map[i] = null;
+    }
+    const spans = (S.res && S.res.spans[si]) || [];
+    const items = view === 'after' ? Deid.resolve(text, spans, isOn) : spans.filter(r => S.res.entities.get(r.id));
+    for (const r of [...items].sort((a, b) => b.s - a.s)) {
+      // 依文字節點切成幾段（一個名字可能跨好幾個 run）
+      const pieces = [];
+      for (let i = r.s; i < r.e; i++) {
+        const m = map[i]; if (!m) continue;
+        const lp = pieces[pieces.length - 1];
+        if (lp && lp.node === m[0] && lp.b === m[1]) lp.b = m[1] + 1; else pieces.push({ node: m[0], a: m[1], b: m[1] + 1 });
+      }
+      if (!pieces.length) continue;
+      const en = S.res.entities.get(r.id);
+      pieces.reverse().forEach((pc, k) => {
+        const isFirst = k === pieces.length - 1;
+        let node = pc.node;
+        if (pc.b < node.data.length) node.splitText(pc.b);
+        const mid = pc.a > 0 ? node.splitText(pc.a) : node;
+        let el;
+        if (view === 'after') {
+          if (!isFirst) { mid.remove(); return; }
+          el = document.createElement('span'); el.className = `rp k-${en.color}`; el.dataset.id = r.id; el.title = en.label + '：' + text.slice(r.s, r.e); el.textContent = r.rep;
+          mid.replaceWith(el);
+        } else {
+          const on = isOn(r.id);
+          el = document.createElement('mark'); el.className = `m k-${en.color} ${on ? 'on' : 'off'} ${en.conf}`; el.dataset.id = r.id;
+          el.title = en.conf === 'suggest' && !S.over.has(r.id) ? '不確定是不是個資，請在右邊判斷' : en.label + ' → ' + r.rep + (on ? '（點一下取消遮蔽）' : '（點一下遮蔽）');
+          mid.replaceWith(el); el.appendChild(mid);
+        }
+      });
+    }
   }
   // 找出某實體第一次出現的前後文
   function contextOf(id) {
@@ -1430,6 +1525,7 @@
     toast(`已移除「${b.dataset.line.split(/[\s=＝]/)[0]}」`, { undo: () => { appendLine(b.dataset.rm, b.dataset.line); analyze(); } });
   });
   $('#listPane').addEventListener('change', e => { const r = e.target.closest('.ent'); if (r && e.target.type === 'checkbox') toggleEnt(r.dataset.id, e.target.checked); });
+  $('#howto').addEventListener('click', e => { const b = e.target.closest('[data-lay]'); if (!b || S.layout === b.dataset.lay) return; S.layout = b.dataset.lay; renderHowto(); renderPreview(); });
   $('#listPane').addEventListener('click', e => {
     const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); flashEl(g.dataset.go); return; }
     const nm = e.target.closest('[data-nm]');

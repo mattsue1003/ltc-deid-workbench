@@ -28,6 +28,7 @@ for f in sorted((X / 'pdfjs-dist-3.11.174/package/cmaps').glob('*.bcmap')):
 
 libs = {
     'jszip': rd(X / 'jszip-3.10.1/package/dist/jszip.min.js'),
+    'docxview': rd(X / 'docx-preview-0.3.7/package/dist/docx-preview.min.js'),
     'pdf': rd(X / 'pdfjs-dist-3.11.174/package/build/pdf.min.js'),
     'pdfworker': 'window.__LIBDATA=window.__LIBDATA||{};__LIBDATA.pdfworker=' + js_str(rd(X / 'pdfjs-dist-3.11.174/package/build/pdf.worker.min.js')) + ';',
     'cmaps': 'window.__LIBDATA=window.__LIBDATA||{};__LIBDATA.cmaps=' + json.dumps(cmaps) + ';',
@@ -36,7 +37,7 @@ libs = {
     'tesscore': 'window.__LIBDATA=window.__LIBDATA||{};__LIBDATA.tesscore=' + js_str(rd(X / 'tesseract.js-core-5.1.1/package/tesseract-core-simd-lstm.wasm.js')) + ';',
     'tesslang': 'window.__LIBDATA=window.__LIBDATA||{};__LIBDATA.tesslang="' + base64.b64encode(rd(X / 'tesseract.js-data-chi_tra-1.0.0/package/4.0.0_best_int/chi_tra.traineddata.gz', 'rb')).decode() + '";',
 }
-files = {'jszip': 'jszip.min.js', 'pdf': 'pdf.min.js', 'pdfworker': 'pdf-worker.js', 'cmaps': 'cmaps.js', 'tess': 'tesseract.min.js',
+files = {'jszip': 'jszip.min.js', 'docxview': 'docx-preview.js', 'pdf': 'pdf.min.js', 'pdfworker': 'pdf-worker.js', 'cmaps': 'cmaps.js', 'tess': 'tesseract.min.js',
          'tessworker': 'tess-worker.js', 'tesscore': 'tess-core.js', 'tesslang': 'tess-chi_tra.js'}
 
 for k, v in libs.items():

@@ -346,3 +346,17 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
 .sstat li{padding:2px 0}
 .sstat li.ok{color:var(--ok)}
 .sstat li.miss{color:var(--danger)}
+
+/* Word 版面預覽：紙張永遠是白底，標記顏色用淺色主題 */
+.preview:has(.wordview){padding:0;background:#8f9a9c;line-height:normal;font-size:inherit}
+.wordview .docx-wrapper{background:#8f9a9c;padding:24px 20px 4px}
+.wordview section.docx{color:#000;color-scheme:light;box-shadow:0 2px 12px rgba(0,0,0,.25);
+  --ink:#173238; --ink2:#47616a; --muted:#7c9097; --amber:#e9a23b; --amber-l:#fff4e0; --warn:#a85a0c; --orange:#e8552d;
+  --c-name:#d9482a; --c-name-bg:#fde5dd; --c-id:#7048b8; --c-id-bg:#efe7fb; --c-phone:#1f68b8; --c-phone-bg:#e1ecfa;
+  --c-date:#2b7e39; --c-date-bg:#e0f2e3; --c-addr:#08737f; --c-addr-bg:#daf1f3; --c-org:#9a6a00; --c-org-bg:#fbf0d2; --c-custom:#56646a; --c-custom-bg:#e8ecee}
+.wordview mark.m{padding:0 1px;border-radius:2px;border-bottom:0;box-shadow:inset 0 -2px 0 var(--mk)}
+.wordview mark.m.off{box-shadow:inset 0 -2px 0 var(--muted)}
+.wordview .rp{padding:0 2px;border-radius:3px}
+.howto .lay{display:inline-flex;align-items:center;gap:4px}
+.howto .lay button{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:2px 10px;font-size:13px;font-weight:700;color:var(--ink2)}
+.howto .lay button.on{background:var(--teal);border-color:var(--teal);color:#fff}
