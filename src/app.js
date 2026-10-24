@@ -1,4 +1,4 @@
-/* 長照識別化｜個案資料工作台 — 介面與檔案處理（全部在瀏覽器內） */
+/* 長照去識別化｜個案資料工作台 — 介面與檔案處理（全部在瀏覽器內） */
 (function () {
   'use strict';
   const $ = s => document.querySelector(s);
