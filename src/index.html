@@ -90,7 +90,8 @@
           <h3>漏掉的人名或字詞，在這裡補上</h3>
           <form class="addrow" id="addForm" autocomplete="off">
             <input type="text" id="addText" placeholder="例如：王小明、七堵長青會" aria-label="要遮蔽的字">
-            <select id="addKind" aria-label="類型"><option value="個案">個案姓名</option><option value="家屬">家屬姓名</option><option value="人員">工作人員</option><option value="看護">看護</option><option value="custom">其他字詞</option></select>
+            <select id="addKind" aria-label="類型"><option value="個案">個案</option><option value="家屬">家屬</option><option value="人員">工作人員（照服員、社工、治療師）</option><option value="看護">看護（外籍或自聘）</option><option value="關係人">其他相關人（鄰居、朋友、志工）</option><option value="custom">其他字詞（地名、機構）</option></select>
+            <input type="text" id="addRep" placeholder="替換成（選填，不填＝自動代號）" aria-label="替換成">
             <button class="btn primary" type="submit">加入</button>
           </form>
           <p class="note">也可以直接在左邊<b>用滑鼠選取文字</b>來加入。全文相同的字都會一起處理。</p>
@@ -99,7 +100,7 @@
         <div class="panel" id="listPane"></div>
         <details class="panel set" id="setWrap">
           <summary>進階設定</summary>
-          <label>本案人名清單 <span class="hint">系統沒抓到的人名，一行一位，可加角色：王小明 個案／李美華 家屬</span></label>
+          <label>本案人名清單 <span class="hint">系統沒抓到的人名，一行一位，可加角色：王小明 個案／李美華 家屬／張阿姨 關係人</span></label>
           <textarea id="sNames"></textarea>
           <div class="sstat" id="stNames" aria-live="polite"></div>
           <label>其他要遮蔽的詞 <span class="hint">一行一個，用「=」指定換成什麼：臺大醫院=某醫學中心、七堵長青會=某社區據點</span></label>

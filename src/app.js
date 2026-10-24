@@ -57,9 +57,9 @@
   // ───────── 設定 ─────────
   function readSettings() {
     const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
-    const ROLES = ['個案', '家屬', '看護', '人員'];
+    const ROLES = ['個案', '家屬', '看護', '人員', '關係人'];
     const names = lines('#sNames').map(l => {
-      const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員)$/.exec(l);
+      const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員|關係人)$/.exec(l);
       return m ? { name: m[1].trim(), role: m[2] } : { name: l, role: null };
     }).filter(n => n.name.length >= 2);
     const custom = lines('#sCustom').map(l => { const k = l.search(/[=＝]/); return k > 0 ? { word: l.slice(0, k).trim(), rep: l.slice(k + 1).trim() || '【已遮蔽】' } : { word: l, rep: '【已遮蔽】' }; });
@@ -97,15 +97,60 @@
   function applyNaming() {
     const changed = new Set();
     for (const en of S.res.entities.values()) {
-      if (en.cat !== 'name') continue;
+      if (en.cat === 'field') continue;
       let rep = null;
-      if (S.repOver.has(en.original)) rep = S.repOver.get(en.original);
-      else if (S.nameMode === 'mask' && /^name:/.test(en.id) && /^[\u3400-\u9fff]{2,4}$/.test(en.original)) rep = maskName(en.original);
+      if (S.repOver.has(en.id)) rep = S.repOver.get(en.id);
+      else if (en.cat === 'name' && S.nameMode === 'mask' && /^name:/.test(en.id) && /^[\u3400-\u9fff]{2,4}$/.test(en.original)) rep = maskName(en.original);
       if (rep == null) continue;
       en.defaultRep = en.defaultRep || en.rep; en.rep = rep; changed.add(en.id);
     }
     if (changed.size) for (const list of S.res.spans) for (const sp of list) if (changed.has(sp.id)) sp.rep = S.res.entities.get(sp.id).rep;
   }
+  // ───────── 修改替換文字：輸入時即時預覽（清單下方的前後文＋左邊的結果預覽）─────────
+  function setRepLive(id, v) {
+    const en = S.res.entities.get(id); if (!en) return;
+    en.defaultRep = en.defaultRep || en.rep;
+    const rep = v || (S.repOver.has(id) ? S.repOver.get(id) : en.defaultRep);
+    en.rep = rep;
+    for (const list of S.res.spans) for (const sp of list) if (sp.id === id) sp.rep = rep;
+  }
+  function repContext(id) {
+    for (let si = 0; si < S.res.spans.length; si++) for (const sp of S.res.spans[si]) if (sp.id === id) {
+      const t = S.doc.segments[si]; const a = Math.max(0, sp.s - 16), b = Math.min(t.length, sp.e + 16);
+      const r = Deid.resolve(t, S.res.spans[si], isOn).find(x => x.s === sp.s);
+      const rep = r ? r.rep : sp.rep;
+      return (a > 0 ? '…' : '') + escH(t.slice(a, sp.s)).replace(/\n/g, ' ') + `<b>${escH(rep)}</b>` + escH(t.slice(sp.e, b)).replace(/\n/g, ' ') + (b < t.length ? '…' : '');
+    }
+    return '';
+  }
+  function openRepEditor(id, row) {
+    const en = S.res.entities.get(id); if (!en) return;
+    document.querySelectorAll('.repbox').forEach(x => x.remove());
+    const box = document.createElement('div'); box.className = 'repbox';
+    box.innerHTML = `<div class="rb-h">「${escH(en.original)}」替換成：</div>
+      <input type="text" class="repin" value="${escH(en.rep)}" aria-label="「${escH(en.original)}」替換成">
+      <div class="rb-pv"><span>預覽</span><div class="rb-ctx"></div></div>
+      <div class="rb-act"><button type="button" class="btn small primary" data-rb="ok">確定</button><button type="button" class="btn small" data-rb="reset">改回預設</button><button type="button" class="btn small ghost" data-rb="cancel">取消</button></div>
+      <p class="note">全文 ${en.count} 處「${escH(en.original)}」都會換成這個。${en.cat === 'name' ? '例如：A 阿嬤、陳先生、案女。' : '例如：某醫學中心、某社區據點。'}</p>`;
+    row.after(box);
+    const inp = box.querySelector('.repin'), ctx = box.querySelector('.rb-ctx');
+    const before = S.view;
+    if (S.view !== 'after') { S.view = 'after'; document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === 'after')); }
+    const live = () => { setRepLive(id, inp.value.trim()); ctx.innerHTML = repContext(id); renderPreview(); flashEl(id); };
+    live(); inp.focus(); inp.select();
+    let t = 0; inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(live, 120); ctx.innerHTML = (setRepLive(id, inp.value.trim()), repContext(id)); });
+    const done = act => {
+      const v = inp.value.trim(), prev = S.repOver.has(id) ? S.repOver.get(id) : null;
+      if (act === 'ok') { if (v && v !== (en.defaultRep || '')) S.repOver.set(id, v); else if (!v) S.repOver.delete(id); }
+      if (act === 'reset') S.repOver.delete(id);
+      if (before !== 'after') { S.view = before; document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === before)); }
+      analyze();
+      if (act !== 'cancel') toast(act === 'reset' ? `「${en.original}」改回預設` : `「${en.original}」全文都會換成「${v || en.defaultRep}」`, { undo: () => { prev == null ? S.repOver.delete(id) : S.repOver.set(id, prev); analyze(); } });
+    };
+    box.addEventListener('click', e => { const b = e.target.closest('[data-rb]'); if (b) done(b.dataset.rb); });
+    inp.addEventListener('keydown', k => { if (k.key === 'Enter') { k.preventDefault(); done('ok'); } else if (k.key === 'Escape') done('cancel'); });
+  }
+
   // 進階設定：每一行即時顯示有沒有在文件裡找到，避免「打了沒反應」
   function renderSettingStatus() {
     const all = S.doc ? S.doc.segments.join('\n') : '';
@@ -1185,8 +1230,23 @@
         await loadLib('jszip'); await loadLib('docxview');
         const box = document.createElement('div'); box.className = 'wordview';
         const styles = document.createElement('div');
-        await docx.renderAsync(await file.arrayBuffer(), box, styles, { className: 'docx', inWrapper: true, breakPages: true, ignoreLastRenderedPageBreak: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, renderEndnotes: true, renderComments: false, useBase64URL: true, experimental: false });
+        const buf = await file.arrayBuffer();
+        // Word 的中文字用「東亞字型」（eastAsia），docx-preview 只套英文字型 → 把文件預設的中文字型補在每個字型清單後面
+        let ea = '新細明體';
+        try {
+          const z = await JSZip.loadAsync(buf), st = z.file('word/styles.xml') ? await z.file('word/styles.xml').async('string') : '';
+          const normal = (/<w:style\b[^>]*w:styleId="Normal"[\s\S]*?<\/w:style>/.exec(st) || [''])[0];
+          const m = /w:eastAsia="([^"]+)"/.exec(normal) || /<w:rPrDefault>[\s\S]*?w:eastAsia="([^"]+)"/.exec(st);
+          if (m) ea = m[1];
+        } catch (e) { /* 用預設 */ }
+        await docx.renderAsync(buf, box, styles, { className: 'docx', inWrapper: true, breakPages: true, ignoreLastRenderedPageBreak: false, renderHeaders: true, renderFooters: true, renderFootnotes: true, renderEndnotes: true, renderComments: false, useBase64URL: true, experimental: false });
         box.prepend(...styles.childNodes);
+        // 暫時放進頁面算出每個元素實際的字型，再把中文字型接在後面（英文字型沒有中文字時，瀏覽器就會用它，跟 Word 一樣）
+        const tail = `"${ea}", "新細明體", serif`;
+        const park = document.createElement('div'); park.style.cssText = 'position:fixed;left:-99999px;top:0;visibility:hidden';
+        park.appendChild(box); document.body.appendChild(park);
+        box.querySelectorAll('section.docx, section.docx *').forEach(el => { const f = getComputedStyle(el).fontFamily; if (f && !f.includes(ea)) el.style.fontFamily = f + ', ' + tail; });
+        park.remove();
         tpl = box; state = 'ready';
       } catch (e) { console.warn('Word 版面預覽失敗，改用純文字', e); state = 'fail'; }
       if (S.doc === doc) renderPreview();
@@ -1299,7 +1359,7 @@
   function renderRules() {
     const lines = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean);
     let h = '';
-    lines('#sNames').forEach(l => { const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員)$/.exec(l); h += `<span class="rule k-name">${escH(m ? m[1] : l)}<small>${m ? m[2] : '人名'}</small><button type="button" data-rm="#sNames" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
+    lines('#sNames').forEach(l => { const m = /^(.+?)[\s=＝,，、]+(個案|家屬|看護|人員|關係人)$/.exec(l); h += `<span class="rule k-name">${escH(m ? m[1] : l)}<small>${m ? m[2] : '人名'}</small><button type="button" data-rm="#sNames" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
     lines('#sCustom').forEach(l => { const kv = l.split(/[=＝]/); h += `<span class="rule k-custom">${escH(kv[0])}${kv[1] ? ` → ${escH(kv[1])}` : ''}<small>其他</small><button type="button" data-rm="#sCustom" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
     lines('#sAllow').forEach(l => { h += `<span class="rule allow">不遮蔽：${escH(l)}<button type="button" data-rm="#sAllow" data-line="${escH(l)}" aria-label="移除">×</button></span>`; });
     $('#rules').innerHTML = h;
@@ -1318,9 +1378,9 @@
       h += `<details class="grp k-${info.color}" data-cat="${cat}" ${openSet.has(cat) ? 'open' : ''}><summary><span class="dot"></span>${info.label}<span class="cnt">${onN}／${list.length}</span></summary>` +
         list.map(e => {
           const o = isOn(e.id);
-          const ed = e.cat === 'name' && !e.id.startsWith('title:') && !e.id.startsWith('nick');
-          const custom = S.repOver.has(e.original);
-          return `<label class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''}><span class="o">${escH(e.original)}<span class="arrow">→</span><span class="rep${custom ? ' custom' : ''}">${escH(e.rep || '（清空）')}</span>${ed ? `<button type="button" class="repedit" data-orig="${escH(e.original)}" title="改成自訂稱呼" aria-label="改成自訂稱呼">✎</button>` : ''} <span class="n">${e.count} 處</span></span><button type="button" class="go" data-go="${escH(e.id)}">看位置</button></label>`;
+          const ed = e.cat !== 'field';
+          const custom = S.repOver.has(e.id);
+          return `<label class="ent ${o ? '' : 'off'}" data-id="${escH(e.id)}"><input type="checkbox" ${o ? 'checked' : ''}><span class="o">${escH(e.original)}<span class="arrow">→</span><span class="rep${custom ? ' custom' : ''}">${escH(e.rep || '（清空）')}</span> <span class="n">${e.count} 處</span></span>${ed ? `<button type="button" class="repedit" data-id="${escH(e.id)}" title="改成你要的替換文字" aria-label="修改「${escH(e.original)}」的替換文字">✎ 改</button>` : ''}<button type="button" class="go" data-go="${escH(e.id)}">看位置</button></label>`;
         }).join('') + '</details>';
     }
     $('#listPane').innerHTML = h;
@@ -1398,16 +1458,18 @@
   function appendLine(id, line) { const ta = $(id); const ls = ta.value.split('\n').map(s => s.trim()).filter(Boolean); if (!ls.includes(line)) ls.push(line); ta.value = ls.join('\n'); }
   function removeLine(id, line) { const ta = $(id); ta.value = ta.value.split('\n').map(s => s.trim()).filter(s => s && s !== line).join('\n'); }
   function codeOf(name) { const e = S.res && S.res.entities.get('name:' + name); return e ? e.rep : ''; }
-  function addName(name, role) {
+  function addName(name, role, rep) {
     appendLine('#sNames', name + (role ? ' ' + role : ''));
+    if (rep) S.repOver.set('name:' + name, rep);
     analyze();
     const c = codeOf(name);
     toast(`已加入「${name}」${c ? `→ ${c}` : ''}，全文同樣的字都會替換`, { undo: () => { removeLine('#sNames', name + (role ? ' ' + role : '')); analyze(); } });
     return c;
   }
-  function addCustom(word) {
-    appendLine('#sCustom', word); analyze();
-    toast(`已加入「${word}」，全文同樣的字都會遮蔽`, { undo: () => { removeLine('#sCustom', word); analyze(); } });
+  function addCustom(word, rep) {
+    const line = rep ? `${word}=${rep}` : word;
+    appendLine('#sCustom', line); analyze();
+    toast(`已加入「${word}」${rep ? `→「${rep}」` : ''}，全文同樣的字都會${rep ? '替換' : '遮蔽'}`, { undo: () => { removeLine('#sCustom', line); analyze(); } });
   }
   function addAllow(word) {
     appendLine('#sAllow', word); analyze();
@@ -1512,12 +1574,12 @@
   });
   $('#addForm').addEventListener('submit', e => {
     e.preventDefault();
-    const t = $('#addText').value.trim(), k = $('#addKind').value;
+    const t = $('#addText').value.trim(), k = $('#addKind').value, rep = $('#addRep').value.trim();
     if (!t) { toast('請先輸入要遮蔽的字'); $('#addText').focus(); return; }
-    if (k === 'custom') addCustom(t);
+    if (k === 'custom') addCustom(t, rep);
     else if (t.length < 2) { toast('人名至少 2 個字；單一字請選「其他字詞」'); return; }
-    else addName(t, k);
-    $('#addText').value = ''; $('#addText').focus();
+    else addName(t, k, rep);
+    $('#addText').value = ''; $('#addRep').value = ''; $('#addText').focus();
   });
   $('#rules').addEventListener('click', e => {
     const b = e.target.closest('[data-rm]'); if (!b) return;
@@ -1531,23 +1593,7 @@
     const nm = e.target.closest('[data-nm]');
     if (nm) { if (S.nameMode !== nm.dataset.nm) { S.nameMode = nm.dataset.nm; analyze(); toast(S.nameMode === 'mask' ? '人名改成「王○明」的形式' : '人名改回代號：個案A、家屬B'); } return; }
     const ed = e.target.closest('.repedit');
-    if (ed) {
-      e.preventDefault();
-      const orig = ed.dataset.orig, rep = ed.previousElementSibling;
-      const inp = document.createElement('input'); inp.className = 'repin'; inp.value = rep.textContent; inp.setAttribute('aria-label', `「${orig}」要替換成`);
-      rep.replaceWith(inp); ed.remove(); inp.focus(); inp.select();
-      let done = false;
-      const commit = ok => {
-        if (done) return; done = true;
-        const v = inp.value.trim(), prev = S.repOver.has(orig) ? S.repOver.get(orig) : null;
-        if (ok && v && v !== orig) S.repOver.set(orig, v); else if (ok && !v) S.repOver.delete(orig);
-        analyze();
-        if (ok) toast(v ? `「${orig}」全文都會換成「${v}」` : `「${orig}」改回預設代號`, { undo: () => { prev == null ? S.repOver.delete(orig) : S.repOver.set(orig, prev); analyze(); } });
-      };
-      inp.addEventListener('keydown', k => { if (k.key === 'Enter') { k.preventDefault(); commit(true); } else if (k.key === 'Escape') commit(false); });
-      inp.addEventListener('blur', () => commit(true));
-      inp.addEventListener('click', k => k.preventDefault());
-    }
+    if (ed) { e.preventDefault(); openRepEditor(ed.dataset.id, ed.closest('.ent')); }
   });
   $('#listPane').addEventListener('toggle', e => { const d = e.target.closest('details[data-cat]'); if (!d) return; S.openGrp = S.openGrp || new Set(); d.open ? S.openGrp.add(d.dataset.cat) : S.openGrp.delete(d.dataset.cat); }, true);
   function labelRole(l) { if (/照服員|居服員|個管|督導|社工|護理|醫|治療師|照專/.test(l)) return '人員'; if (/看護|外看|移工|傭/.test(l)) return '看護'; if (/個案|案主|長者|住民|學員/.test(l)) return '個案'; return '家屬'; }
@@ -1557,26 +1603,33 @@
   document.addEventListener('mouseup', () => setTimeout(showPop, 10));
   document.addEventListener('touchend', () => setTimeout(showPop, 350));
   document.addEventListener('keyup', e => { if (e.shiftKey) showPop(); });
-  document.addEventListener('selectionchange', () => { if (!(window.getSelection() + '').trim()) pop.classList.add('hidden'); });
+  document.addEventListener('selectionchange', () => { if (!(window.getSelection() + '').trim() && !pop.contains(document.activeElement)) pop.classList.add('hidden'); });
   function showPop() {
+    if (pop.contains(document.activeElement) && !pop.classList.contains('hidden')) return;
     const sel = window.getSelection(); const t = (sel + '').trim();
     if (!t || !S.doc || !sel.rangeCount || !$('#preview').contains(sel.anchorNode) || t.length > 60 || /\n/.test(t)) { pop.classList.add('hidden'); return; }
     const rc = sel.getRangeAt(0).getBoundingClientRect();
-    pop.innerHTML = `<div class="sp-t">把「<b>${escH(t)}</b>」當作：</div><div class="sp-g"><button type="button" data-a="name-個案">個案姓名</button><button type="button" data-a="name-家屬">家屬姓名</button><button type="button" data-a="name-人員">工作人員</button><button type="button" data-a="name-看護">看護</button><button type="button" data-a="custom" class="wide" style="background:var(--soft)">其他要遮蔽的字（地名、機構…）</button><button type="button" data-a="allow" class="wide">這不是個資，不要遮蔽</button></div>`;
+    const one = t.length < 2;
+    pop.innerHTML = `<div class="sp-t">把「<b>${escH(t)}</b>」當作：</div>
+      <label class="sp-rep">替換成<input type="text" id="spRep" placeholder="${one ? '例如：某' : '不填＝自動代號（個案A…）'}" autocomplete="off"></label>
+      <div class="sp-g">${one ? '' : `<button type="button" data-a="name-個案">個案</button><button type="button" data-a="name-家屬">家屬</button><button type="button" data-a="name-人員">工作人員<small>照服員、社工、治療師…</small></button><button type="button" data-a="name-看護">看護<small>外籍或自聘看護</small></button><button type="button" data-a="name-關係人" class="wide">其他相關人<small>鄰居、朋友、志工、房東…</small></button>`}<button type="button" data-a="custom" class="wide" style="background:var(--soft)">其他要遮蔽的字<small>地名、機構、店名…</small></button><button type="button" data-a="allow" class="wide">這不是個資，不要遮蔽</button></div>
+      ${one ? '<p class="sp-note">只選了一個字：全文所有「' + escH(t) + '」都會被換掉，請確認真的要這樣做。</p>' : ''}`;
     pop.dataset.text = t;
     pop.classList.remove('hidden');
     const w = pop.offsetWidth;
     pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, rc.left + rc.width / 2 - w / 2)) + 'px';
     pop.style.top = (rc.bottom + 8 + pop.offsetHeight > innerHeight ? rc.top - pop.offsetHeight - 8 : rc.bottom + 8) + 'px';
   }
-  pop.addEventListener('mousedown', e => e.preventDefault());
+  pop.addEventListener('mousedown', e => { if (e.target.id !== 'spRep') e.preventDefault(); });
+  pop.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'spRep') { e.preventDefault(); pop.querySelector('[data-a]').click(); } if (e.key === 'Escape') pop.classList.add('hidden'); });
   pop.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    const t = pop.dataset.text; pop.classList.add('hidden'); window.getSelection().removeAllRanges();
-    if (b.dataset.a === 'custom') addCustom(t);
+    const t = pop.dataset.text, rep = ($('#spRep') || {}).value ? $('#spRep').value.trim() : '';
+    pop.classList.add('hidden'); window.getSelection().removeAllRanges();
+    if (b.dataset.a === 'custom') addCustom(t, rep);
     else if (b.dataset.a === 'allow') addAllow(t);
     else if (t.length < 2) toast('人名至少 2 個字；單一字請用「其他要遮蔽的字」');
-    else addName(t, b.dataset.a.slice(5));
+    else addName(t, b.dataset.a.slice(5), rep);
   });
 
   // 黑框版：空白處拖曳＝新增；點黑框＝選取；拖曳選取的黑框＝移動；拖曳角落＝調整大小

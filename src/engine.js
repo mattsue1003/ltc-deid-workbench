@@ -658,7 +658,7 @@
     spansBySeg.forEach(list => list.forEach(c => { if (c.person) usedPersons.add(c.person); }));
     const plist = [...usedPersons].sort((a, b) => persons.get(a).first - persons.get(b).first);
     const pcode = new Map();
-    plist.forEach((nm, i) => pcode.set(nm, { letter: letterOf(i), role: persons.get(nm).role || '人物' }));
+    plist.forEach((nm, i) => pcode.set(nm, { letter: letterOf(i), role: persons.get(nm).role || '關係人' }));
     let nextLetter = plist.length;
     const surnameOwners = new Map();
     for (const nm of plist) {
@@ -742,12 +742,12 @@
     return { entities, spans, day0, persons, lang };
   }
 
-  const ROLE_EN = { 個案: 'Client', 家屬: 'Family', 看護: 'Caregiver', 人員: 'Staff', 人物: 'Person' };
+  const ROLE_EN = { 個案: 'Client', 家屬: 'Family', 看護: 'Caregiver', 人員: 'Staff', 關係人: 'Person', 人物: 'Person' };
   const TAG_EN = { 電話: 'Phone', 身分證號: 'ID', 編號: 'ID No.', 號碼: 'Number', Email: 'Email', 帳號: 'Account', 人名: 'Name', 已遮蔽: 'Redacted', 出生日期: 'DOB', 日期: 'Date', 地址: 'Address', '90歲以上': 'Age 90+' };
   function localize(rep, lang) {
     if (lang !== 'en' || rep == null) return rep;
     let m;
-    if ((m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep))) return ROLE_EN[m[1]] + ' ' + m[2];
+    if ((m = /^(個案|家屬|看護|人員|關係人|人物)([A-Z]{1,2})$/.exec(rep))) return ROLE_EN[m[1]] + ' ' + m[2];
     if ((m = /^(醫院|機構)([A-Z]{1,2})$/.exec(rep))) return (m[1] === '醫院' ? 'Hospital ' : 'Organization ') + m[2];
     if ((m = /^第(\d+)天$/.exec(rep))) return 'Day ' + m[1];
     if ((m = /^(\d{4})年(\d{1,2})月$/.exec(rep))) return m[1] + '-' + m[2].padStart(2, '0');
@@ -760,7 +760,7 @@
     for (const sp of spans) {
       if (!isOn(sp.id)) continue;
       let rep = sp.rep;
-      const m = /^(個案|家屬|看護|人員|人物)([A-Z]{1,2})$/.exec(rep) || /^(Client|Family|Caregiver|Staff|Person) ([A-Z]{1,2})$/.exec(rep);
+      const m = /^(個案|家屬|看護|人員|關係人|人物)([A-Z]{1,2})$/.exec(rep) || /^(Client|Family|Caregiver|Staff|Person) ([A-Z]{1,2})$/.exec(rep);
       if (m && text.slice(Math.max(0, sp.s - m[1].length - 1), sp.s).replace(/\s$/, '').endsWith(m[1])) rep = m[2];
       // 自訂稱呼已含稱謂（A 阿嬤）、原文後面又接同一個稱謂（阿嬤）→ 不要重複
       const tt = /(阿嬤|阿公|奶奶|爺爺|伯伯|阿姨|叔叔|先生|女士|小姐|太太)$/.exec(rep);
