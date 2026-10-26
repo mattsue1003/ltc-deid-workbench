@@ -396,6 +396,9 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
 @font-face{font-family:"細明體";src:local("MingLiU"),local("PMingLiU"),local("LiSongPro"),local("Songti TC")}
 @font-face{font-family:"微軟正黑體";src:local("Microsoft JhengHei"),local("MicrosoftJhengHeiRegular"),local("PingFang TC"),local("PingFangTC-Regular"),local("Heiti TC")}
 @font-face{font-family:"Microsoft JhengHei";src:local("Microsoft JhengHei"),local("PingFangTC-Regular"),local("Heiti TC")}
+
+.drop .pastehint{font-size:14px;color:var(--ink2)}
+.drop .pastehint kbd{font:inherit;font-weight:800;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;background:var(--panel)}
 </style>
 </head>
 <body>
@@ -429,6 +432,7 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
       <label class="drop" id="drop" for="fileIn">
         <span class="drop-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
         <span class="big">拖曳檔案到這裡</span>
+        <span class="pastehint">或直接按 <kbd id="kbdPaste">⌘V</kbd> 貼上截圖</span>
         <span class="btn primary lg">選擇檔案</span>
         <span class="fmt"><span class="chip">Word</span><span class="chip">Excel</span><span class="chip">CSV</span><span class="chip">PDF</span><span class="chip">掃描檔・照片</span><span class="chip">.txt</span></span>
         <input type="file" id="fileIn" class="sr" accept=".docx,.xlsx,.xlsm,.csv,.txt,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.bmp,.gif,.tif,.tiff">
@@ -2793,6 +2797,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const outs = outputsFor();
     const cur = S.outFmt && outs.some(o => o.v === S.outFmt) ? S.outFmt : outs[0].v; S.outFmt = cur;
     const canCopy = ['txt', 'docx', 'csv', 'xlsx'].includes(S.doc.kind) || S.mode === 'text';
+    const canCopyImg = S.doc.pages && S.doc.pages.length === 1 && S.mode !== 'text' && !!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
     const pend = pendingList().length;
     const ready = !pend && S.reviewed;
     $('#expPane').innerHTML = `<h3><i>3</i>下載去識別化檔案</h3>
@@ -2805,7 +2810,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label class="ci" id="ciRev"><input type="checkbox" id="ckRev" ${S.reviewed ? 'checked' : ''}><span>我已從頭到尾看過左邊的標記，了解自動偵測可能有遺漏</span></label>
       </div>
       <div class="dlmsg" id="dlMsg"></div>
-      <div class="row"><button class="btn ${ready ? 'primary' : 'waiting'} lg" id="btnDl" type="button" style="flex:2">⬇ 下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button">複製文字</button>` : ''}</div>`;
+      <div class="row"><button class="btn ${ready ? 'primary' : 'waiting'} lg" id="btnDl" type="button" style="flex:2">⬇ 下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button">複製文字</button>` : ''}${canCopyImg ? `<button class="btn" id="btnCopyImg" type="button">複製圖片</button>` : ''}</div>
+      ${canCopyImg ? '<p class="note" style="margin:8px 0 0">「複製圖片」後可以直接貼到 LINE、簡報或 AI 對話框。</p>' : ''}`;
   }
   // 下載前檢查：沒完成就說清楚還差什麼
   function gate() {
@@ -2865,6 +2871,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     toast(`「${word}」不會被遮蔽`, { undo: () => { removeLine('#sAllow', word); analyze(); } });
   }
 
+  // ⌘V／Ctrl+V 直接貼上截圖（或從 Finder／檔案總管複製的檔案）
+  document.addEventListener('paste', e => {
+    const cd = e.clipboardData; if (!cd) return;
+    const files = [...cd.files];
+    if (!files.length) for (const it of cd.items || []) if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
+    const f = files.find(x => /^image\//.test(x.type) || /\.(docx|xlsx|xlsm|csv|txt|pdf)$/i.test(x.name));
+    if (!f) return;   // 一般文字照常貼上
+    e.preventDefault();
+    const t = new Date(), hhmm = String(t.getHours()).padStart(2, '0') + String(t.getMinutes()).padStart(2, '0');
+    const file = /^image\//.test(f.type) && (!f.name || /^image\.\w+$/i.test(f.name)) ? new File([f], `截圖_${hhmm}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type }) : f;
+    if (S.doc) toast('已改用剛貼上的' + (/^image\//.test(f.type) ? '截圖' : '檔案'));
+    openFile(file);
+  });
   $('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
@@ -3098,6 +3117,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (err) { console.error(err); alert('輸出失敗：' + errText(err)); }
       finally { progress(false); renderExport(); }
     }
+    if (btn.id === 'btnCopyImg') {
+      if (!gate()) return;
+      try {
+        const r = await S.doc.export('png');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': r.blob })]);
+        toast('✓ 已複製遮好黑框的圖片，可以直接貼上');
+      } catch (err) { console.error(err); toast('這個瀏覽器不允許複製圖片，請改用「下載」'); }
+      finally { progress(false); }
+      return;
+    }
     if (btn.id === 'btnCopy') {
       if (!gate()) return;
       let text;
@@ -3126,7 +3155,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   $('#btnLock').addEventListener('click', () => { $('#testRes').textContent = ''; $('#dlgLock').showModal(); });
 
   // ───────── 回報問題：開 Google 表單（新分頁），只帶入問題類型、檔案類型、版本與瀏覽器，不帶任何檔案內容 ─────────
-  const APP_VER = '2026-10-25';
+  const APP_VER = '2026-10-26';
   const REPORT = { url: 'https://docs.google.com/forms/d/e/1FAIpQLSdA5RtIganAGsrH-JFk-9jec0J3n2y8Zuma5fVTwqoJzLRsXQ/viewform', type: 'entry.1393603095', file: 'entry.1412111892', tech: 'entry.733166479' };   // 表單預填欄位代號（entry.xxx）
   const R_TYPES = ['漏遮：個資沒被找出來', '誤遮：不是個資卻被遮', '下載的檔案打不開或排版跑掉', '照片／掃描檔辨識不好', '按鈕沒反應、操作卡住', '建議新功能', '其他'];
   const R_FILE = { docx: 'Word', xlsx: 'Excel', csv: 'CSV', pdf: 'PDF', image: '照片／掃描檔', text: '貼上文字', txt: '貼上文字' };
@@ -3159,6 +3188,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   $('#rTypes').addEventListener('change', () => { $('#btnReportGo').href = reportUrl(); });
   $('#btnReportGo').addEventListener('click', () => setTimeout(() => $('#dlgReport').close(), 300));
   if (location.protocol === 'file:') $('#btnOffline').classList.add('hidden');
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $('#kbdPaste').textContent = 'Ctrl+V';
   $('#btnTest').addEventListener('click', async () => {
     const res = $('#testRes'); res.textContent = '測試中…'; res.style.color = '';
     let blocked = false;

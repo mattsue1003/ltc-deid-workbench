@@ -1404,6 +1404,7 @@
     const outs = outputsFor();
     const cur = S.outFmt && outs.some(o => o.v === S.outFmt) ? S.outFmt : outs[0].v; S.outFmt = cur;
     const canCopy = ['txt', 'docx', 'csv', 'xlsx'].includes(S.doc.kind) || S.mode === 'text';
+    const canCopyImg = S.doc.pages && S.doc.pages.length === 1 && S.mode !== 'text' && !!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
     const pend = pendingList().length;
     const ready = !pend && S.reviewed;
     $('#expPane').innerHTML = `<h3><i>3</i>下載去識別化檔案</h3>
@@ -1416,7 +1417,8 @@
         <label class="ci" id="ciRev"><input type="checkbox" id="ckRev" ${S.reviewed ? 'checked' : ''}><span>我已從頭到尾看過左邊的標記，了解自動偵測可能有遺漏</span></label>
       </div>
       <div class="dlmsg" id="dlMsg"></div>
-      <div class="row"><button class="btn ${ready ? 'primary' : 'waiting'} lg" id="btnDl" type="button" style="flex:2">⬇ 下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button">複製文字</button>` : ''}</div>`;
+      <div class="row"><button class="btn ${ready ? 'primary' : 'waiting'} lg" id="btnDl" type="button" style="flex:2">⬇ 下載</button>${canCopy ? `<button class="btn" id="btnCopy" type="button">複製文字</button>` : ''}${canCopyImg ? `<button class="btn" id="btnCopyImg" type="button">複製圖片</button>` : ''}</div>
+      ${canCopyImg ? '<p class="note" style="margin:8px 0 0">「複製圖片」後可以直接貼到 LINE、簡報或 AI 對話框。</p>' : ''}`;
   }
   // 下載前檢查：沒完成就說清楚還差什麼
   function gate() {
@@ -1476,6 +1478,19 @@
     toast(`「${word}」不會被遮蔽`, { undo: () => { removeLine('#sAllow', word); analyze(); } });
   }
 
+  // ⌘V／Ctrl+V 直接貼上截圖（或從 Finder／檔案總管複製的檔案）
+  document.addEventListener('paste', e => {
+    const cd = e.clipboardData; if (!cd) return;
+    const files = [...cd.files];
+    if (!files.length) for (const it of cd.items || []) if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
+    const f = files.find(x => /^image\//.test(x.type) || /\.(docx|xlsx|xlsm|csv|txt|pdf)$/i.test(x.name));
+    if (!f) return;   // 一般文字照常貼上
+    e.preventDefault();
+    const t = new Date(), hhmm = String(t.getHours()).padStart(2, '0') + String(t.getMinutes()).padStart(2, '0');
+    const file = /^image\//.test(f.type) && (!f.name || /^image\.\w+$/i.test(f.name)) ? new File([f], `截圖_${hhmm}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type }) : f;
+    if (S.doc) toast('已改用剛貼上的' + (/^image\//.test(f.type) ? '截圖' : '檔案'));
+    openFile(file);
+  });
   $('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
@@ -1709,6 +1724,16 @@
       } catch (err) { console.error(err); alert('輸出失敗：' + errText(err)); }
       finally { progress(false); renderExport(); }
     }
+    if (btn.id === 'btnCopyImg') {
+      if (!gate()) return;
+      try {
+        const r = await S.doc.export('png');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': r.blob })]);
+        toast('✓ 已複製遮好黑框的圖片，可以直接貼上');
+      } catch (err) { console.error(err); toast('這個瀏覽器不允許複製圖片，請改用「下載」'); }
+      finally { progress(false); }
+      return;
+    }
     if (btn.id === 'btnCopy') {
       if (!gate()) return;
       let text;
@@ -1770,6 +1795,7 @@
   $('#rTypes').addEventListener('change', () => { $('#btnReportGo').href = reportUrl(); });
   $('#btnReportGo').addEventListener('click', () => setTimeout(() => $('#dlgReport').close(), 300));
   if (location.protocol === 'file:') $('#btnOffline').classList.add('hidden');
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $('#kbdPaste').textContent = 'Ctrl+V';
   $('#btnTest').addEventListener('click', async () => {
     const res = $('#testRes'); res.textContent = '測試中…'; res.style.color = '';
     let blocked = false;

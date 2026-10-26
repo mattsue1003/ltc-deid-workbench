@@ -384,3 +384,6 @@ footer{max-width:1440px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);
 @font-face{font-family:"細明體";src:local("MingLiU"),local("PMingLiU"),local("LiSongPro"),local("Songti TC")}
 @font-face{font-family:"微軟正黑體";src:local("Microsoft JhengHei"),local("MicrosoftJhengHeiRegular"),local("PingFang TC"),local("PingFangTC-Regular"),local("Heiti TC")}
 @font-face{font-family:"Microsoft JhengHei";src:local("Microsoft JhengHei"),local("PingFangTC-Regular"),local("Heiti TC")}
+
+.drop .pastehint{font-size:14px;color:var(--ink2)}
+.drop .pastehint kbd{font:inherit;font-weight:800;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;background:var(--panel)}
